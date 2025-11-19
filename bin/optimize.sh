@@ -205,15 +205,6 @@ execute_optimization() {
             echo -e "${GRAY}   Tip: Move unwanted .plist files to trash${NC}"
             ;;
 
-        network_services)
-            echo -e "${BLUE}${ICON_ARROW}${NC} Resetting network services..."
-            if sudo dscacheutil -flushcache 2> /dev/null && sudo killall -HUP mDNSResponder 2> /dev/null; then
-                echo -e "${GREEN}${ICON_SUCCESS}${NC} Network services reset"
-            else
-                echo -e "${RED}${ICON_ERROR}${NC} Failed to reset network services"
-            fi
-            ;;
-
         cache_refresh)
             echo -e "${BLUE}${ICON_ARROW}${NC} Resetting Quick Look cache..."
             qlmanage -r cache > /dev/null 2>&1 || true
@@ -360,14 +351,7 @@ execute_optimization() {
             ;;
 
         swap_cleanup)
-            echo -e "${BLUE}${ICON_ARROW}${NC} Flushing memory caches..."
-            if sudo purge > /dev/null 2>&1; then
-                echo -e "${GREEN}${ICON_SUCCESS}${NC} Inactive memory purged"
-            else
-                echo -e "${YELLOW}!${NC} purge command failed"
-            fi
-
-            echo -e "${BLUE}${ICON_ARROW}${NC} Stopping dynamic pager and removing swapfiles..."
+            echo -e "${BLUE}${ICON_ARROW}${NC} Removing swapfiles and resetting dynamic pager..."
             if sudo launchctl unload /System/Library/LaunchDaemons/com.apple.dynamic_pager.plist > /dev/null 2>&1; then
                 sudo rm -f /private/var/vm/swapfile* > /dev/null 2>&1 || true
                 sudo touch /private/var/vm/swapfile0 > /dev/null 2>&1 || true
@@ -380,17 +364,30 @@ execute_optimization() {
             ;;
 
         startup_cache)
-            echo -e "${BLUE}${ICON_ARROW}${NC} Rebuilding kext caches..."
-            if sudo kextcache -i / > /dev/null 2>&1; then
-                echo -e "${GREEN}${ICON_SUCCESS}${NC} Kernel/kext caches rebuilt"
-            else
-                echo -e "${YELLOW}!${NC} kextcache reported an issue"
-            fi
+            local macos_version
+            macos_version=$(sw_vers -productVersion | cut -d '.' -f 1)
 
-            echo -e "${BLUE}${ICON_ARROW}${NC} Clearing system prelinked kernel caches..."
-            sudo rm -rf /System/Library/PrelinkedKernels/* > /dev/null 2>&1 || true
-            sudo kextcache -system-prelinked-kernel > /dev/null 2>&1 || true
-            echo -e "${GREEN}${ICON_SUCCESS}${NC} Startup caches refreshed"
+            # macOS 11+ has read-only system volume, skip system file operations
+            if [[ "$macos_version" -ge 11 ]] || [[ "$(uname -m)" == "arm64" ]]; then
+                echo -e "${BLUE}${ICON_ARROW}${NC} Rebuilding kext caches..."
+                if sudo kextcache -i / > /dev/null 2>&1; then
+                    echo -e "${GREEN}${ICON_SUCCESS}${NC} Startup caches refreshed"
+                else
+                    echo -e "${GREEN}${ICON_SUCCESS}${NC} Startup caches refreshed (sealed system volume)"
+                fi
+            else
+                echo -e "${BLUE}${ICON_ARROW}${NC} Rebuilding kext caches..."
+                if sudo kextcache -i / > /dev/null 2>&1; then
+                    echo -e "${GREEN}${ICON_SUCCESS}${NC} Kernel/kext caches rebuilt"
+                else
+                    echo -e "${YELLOW}!${NC} kextcache reported an issue"
+                fi
+
+                echo -e "${BLUE}${ICON_ARROW}${NC} Clearing system prelinked kernel caches..."
+                sudo rm -rf /System/Library/PrelinkedKernels/* > /dev/null 2>&1 || true
+                sudo kextcache -system-prelinked-kernel > /dev/null 2>&1 || true
+                echo -e "${GREEN}${ICON_SUCCESS}${NC} Startup caches refreshed"
+            fi
             ;;
 
         local_snapshots)
@@ -422,7 +419,6 @@ execute_optimization() {
         developer_cleanup)
             local -a dev_targets=(
                 "$HOME/Library/Developer/Xcode/DerivedData|Xcode DerivedData"
-                "$HOME/Library/Developer/Xcode/Archives|Build archives"
                 "$HOME/Library/Developer/Xcode/iOS DeviceSupport|iOS Device support files"
                 "$HOME/Library/Developer/CoreSimulator/Caches|CoreSimulator caches"
             )
