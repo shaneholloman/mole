@@ -130,9 +130,10 @@ batch_uninstall_applications() {
             running_apps+=("$app_name")
         fi
 
-        # Check if app requires sudo to delete
+        # Check if app requires sudo to delete (either app bundle or system files)
+        local needs_sudo=false
         if [[ ! -w "$(dirname "$app_path")" ]] || [[ "$(get_file_owner "$app_path")" == "root" ]]; then
-            sudo_apps+=("$app_name")
+            needs_sudo=true
         fi
 
         # Calculate size for summary (including system files)
@@ -150,6 +151,10 @@ batch_uninstall_applications() {
         # Check if system files require sudo
         # shellcheck disable=SC2128
         if [[ -n "$system_files" ]]; then
+            needs_sudo=true
+        fi
+
+        if [[ "$needs_sudo" == "true" ]]; then
             sudo_apps+=("$app_name")
         fi
 
@@ -401,7 +406,12 @@ batch_uninstall_applications() {
         summary_details+=("No applications were uninstalled.")
     fi
 
-    print_summary_block "$summary_status" "Uninstall complete" "${summary_details[@]}"
+    local title="Uninstall complete"
+    if [[ "$summary_status" == "warn" ]]; then
+        title="Uninstall incomplete"
+    fi
+
+    print_summary_block "$title" "${summary_details[@]}"
     printf '\n'
 
     # Clean up Dock entries for uninstalled apps

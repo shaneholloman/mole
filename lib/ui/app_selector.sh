@@ -3,6 +3,8 @@
 
 set -euo pipefail
 
+# Note: get_display_width() is now defined in lib/core/ui.sh
+
 # Format app info for display
 format_app_display() {
     local display_name="$1" size="$2" last_used="$3"
@@ -16,22 +18,31 @@ format_app_display() {
     [[ "$size" != "0" && "$size" != "" && "$size" != "Unknown" ]] && size_str="$size"
 
     # Calculate available width for app name based on terminal width
-    local terminal_width=$(tput cols 2> /dev/null || echo 80)
+    # use passed width or calculate it (but calculation is slow in loops)
+    local terminal_width="${4:-$(tput cols 2> /dev/null || echo 80)}"
     local fixed_width=28
     local available_width=$((terminal_width - fixed_width))
 
-    # Set reasonable bounds for name width: 24-35 chars
+    # Set reasonable bounds for name width: 24-35 display width
     [[ $available_width -lt 24 ]] && available_width=24
     [[ $available_width -gt 35 ]] && available_width=35
 
-    # Truncate long names if needed
-    local truncated_name="$display_name"
-    if [[ ${#display_name} -gt $available_width ]]; then
-        truncated_name="${display_name:0:$((available_width - 3))}..."
-    fi
+    # Truncate long names if needed (based on display width, not char count)
+    local truncated_name
+    truncated_name=$(truncate_by_display_width "$display_name" "$available_width")
 
-    # Use dynamic column width for better readability
-    printf "%-*s %9s | %s" "$available_width" "$truncated_name" "$size_str" "$compact_last_used"
+    # Get actual display width after truncation
+    local current_display_width
+    current_display_width=$(get_display_width "$truncated_name")
+
+    # Calculate padding needed
+    # Formula: char_count + (available_width - display_width) = padding to add
+    local char_count=${#truncated_name}
+    local padding_needed=$((available_width - current_display_width))
+    local printf_width=$((char_count + padding_needed))
+
+    # Use dynamic column width with corrected padding
+    printf "%-*s %9s | %s" "$printf_width" "$truncated_name" "$size_str" "$compact_last_used"
 }
 
 # Global variable to store selection result (bash 3.2 compatible)
@@ -46,6 +57,15 @@ select_apps_for_uninstall() {
     fi
 
     # Build menu options
+    # Show loading for large lists (formatting can be slow due to width calculations)
+    local app_count=${#apps_data[@]}
+    local terminal_width=$(tput cols 2> /dev/null || echo 80)
+    if [[ $app_count -gt 100 ]]; then
+        if [[ -t 2 ]]; then
+            printf "\rPreparing %d applications...    " "$app_count" >&2
+        fi
+    fi
+
     local -a menu_options=()
     # Prepare metadata (comma-separated) for sorting/filtering inside the menu
     local epochs_csv=""
@@ -54,7 +74,7 @@ select_apps_for_uninstall() {
     for app_data in "${apps_data[@]}"; do
         # Keep extended field 7 (size_kb) if present
         IFS='|' read -r epoch _ display_name _ size last_used size_kb <<< "$app_data"
-        menu_options+=("$(format_app_display "$display_name" "$size" "$last_used")")
+        menu_options+=("$(format_app_display "$display_name" "$size" "$last_used" "$terminal_width")")
         # Build csv lists (avoid trailing commas)
         if [[ $idx -eq 0 ]]; then
             epochs_csv="${epoch:-0}"
@@ -65,6 +85,13 @@ select_apps_for_uninstall() {
         fi
         ((idx++))
     done
+
+    # Clear loading message
+    if [[ $app_count -gt 100 ]]; then
+        if [[ -t 2 ]]; then
+            printf "\r\033[K" >&2
+        fi
+    fi
 
     # Expose metadata for the paginated menu (optional inputs)
     # - MOLE_MENU_META_EPOCHS: numeric last_used_epoch per item

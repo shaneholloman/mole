@@ -40,10 +40,11 @@ Paste the debug output here
 
 ## Environment
 
-- Mole version: (run `mo --version`)
-- macOS version: (run `sw_vers`)
-- Installation method: (Homebrew / curl script)
-- Architecture: (Intel / Apple Silicon)
+Please run `mo update` to ensure you are on the latest version, then paste the output of `mo --version` below:
+
+```text
+Paste mo --version output here
+```
 
 ## Additional context
 

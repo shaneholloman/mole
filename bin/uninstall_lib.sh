@@ -83,12 +83,24 @@ scan_applications() {
         [[ $cache_age -eq $(date +%s) ]] && cache_age=86401 # Handle missing file
         if [[ $cache_age -lt $cache_ttl ]]; then
             # Cache hit - return immediately
+            # Show brief flash of cache usage if in interactive mode
+            if [[ -t 2 ]]; then
+                echo -e "${GREEN}Loading from cache...${NC}" >&2
+                # Small sleep to let user see it (optional, but good for "feeling" the speed vs glitch)
+                sleep 0.3
+            fi
             echo "$cache_file"
             return 0
         fi
     fi
 
-    # Cache miss - show scanning feedback below
+    # Cache miss - prepare for scanning
+    local inline_loading=false
+    if [[ -t 1 && -t 2 ]]; then
+        inline_loading=true
+        # Clear screen for inline loading
+        printf "\033[2J\033[H" >&2
+    fi
 
     local temp_file
     temp_file=$(create_temp_file)
@@ -97,11 +109,7 @@ scan_applications() {
     local current_epoch
     current_epoch=$(date "+%s")
 
-    # Spinner for scanning feedback (simple ASCII for compatibility)
-    local spinner_chars="|/-\\"
-    local spinner_idx=0
-
-    # First pass: quickly collect all valid app paths and bundle IDs
+    # First pass: quickly collect all valid app paths and bundle IDs (NO mdls calls)
     local -a app_data_tuples=()
     while IFS= read -r -d '' app_path; do
         if [[ ! -e "$app_path" ]]; then continue; fi
@@ -118,78 +126,19 @@ scan_applications() {
             continue
         fi
 
-        # Try to get English name from bundle info, fallback to folder name
+        # Get bundle ID only (fast, no mdls calls in first pass)
         local bundle_id="unknown"
-        local display_name="$app_name"
         if [[ -f "$app_path/Contents/Info.plist" ]]; then
             bundle_id=$(defaults read "$app_path/Contents/Info.plist" CFBundleIdentifier 2> /dev/null || echo "unknown")
-
-            # Try to get English name from bundle info
-            local bundle_executable
-            bundle_executable=$(defaults read "$app_path/Contents/Info.plist" CFBundleExecutable 2> /dev/null)
-
-            # Smart display name selection - prefer descriptive names over generic ones
-            local candidates=()
-
-            # Get all potential names
-            local bundle_display_name
-            bundle_display_name=$(plutil -extract CFBundleDisplayName raw "$app_path/Contents/Info.plist" 2> /dev/null)
-            local bundle_name
-            bundle_name=$(plutil -extract CFBundleName raw "$app_path/Contents/Info.plist" 2> /dev/null)
-
-            # Check if executable name is generic/technical (should be avoided)
-            local is_generic_executable=false
-            if [[ -n "$bundle_executable" ]]; then
-                case "$bundle_executable" in
-                    "pake" | "Electron" | "electron" | "nwjs" | "node" | "helper" | "main" | "app" | "binary")
-                        is_generic_executable=true
-                        ;;
-                esac
-            fi
-
-            # Priority order for name selection:
-            # 1. App folder name (if ASCII and descriptive) - often the most complete name
-            if [[ "$app_name" =~ ^[A-Za-z0-9\ ._-]+$ && ${#app_name} -gt 3 ]]; then
-                candidates+=("$app_name")
-            fi
-
-            # 2. CFBundleDisplayName (if meaningful and ASCII)
-            if [[ -n "$bundle_display_name" && "$bundle_display_name" =~ ^[A-Za-z0-9\ ._-]+$ ]]; then
-                candidates+=("$bundle_display_name")
-            fi
-
-            # 3. CFBundleName (if meaningful and ASCII)
-            if [[ -n "$bundle_name" && "$bundle_name" =~ ^[A-Za-z0-9\ ._-]+$ && "$bundle_name" != "$bundle_display_name" ]]; then
-                candidates+=("$bundle_name")
-            fi
-
-            # 4. CFBundleExecutable (only if not generic and ASCII)
-            if [[ -n "$bundle_executable" && "$bundle_executable" =~ ^[A-Za-z0-9._-]+$ && "$is_generic_executable" == false ]]; then
-                candidates+=("$bundle_executable")
-            fi
-
-            # 5. Fallback to non-ASCII names if no ASCII found
-            if [[ ${#candidates[@]} -eq 0 ]]; then
-                [[ -n "$bundle_display_name" ]] && candidates+=("$bundle_display_name")
-                [[ -n "$bundle_name" && "$bundle_name" != "$bundle_display_name" ]] && candidates+=("$bundle_name")
-                candidates+=("$app_name")
-            fi
-
-            # Select the first (best) candidate
-            display_name="${candidates[0]:-$app_name}"
-
-            # Apply brand name mapping from common.sh
-            display_name="$(get_brand_name "$display_name")"
         fi
 
         # Skip system critical apps (input methods, system components)
-        # Note: Paid apps like CleanMyMac, 1Password are NOT protected here - users can uninstall them
         if should_protect_from_uninstall "$bundle_id"; then
             continue
         fi
 
-        # Store tuple: app_path|app_name|bundle_id|display_name
-        app_data_tuples+=("${app_path}|${app_name}|${bundle_id}|${display_name}")
+        # Store tuple: app_path|app_name|bundle_id (display_name will be resolved in parallel later)
+        app_data_tuples+=("${app_path}|${app_name}|${bundle_id}")
     done < <(
         # Scan both system and user application directories
         # Using maxdepth 3 to find apps in subdirectories (e.g., Adobe apps in /Applications/Adobe X/)
@@ -209,11 +158,7 @@ scan_applications() {
         max_parallel=32
     fi
     local pids=()
-    local inline_loading=false
-    if [[ "${MOLE_INLINE_LOADING:-}" == "1" || "${MOLE_INLINE_LOADING:-}" == "true" ]]; then
-        inline_loading=true
-        printf "\033[H" >&2 # Position cursor at top of screen
-    fi
+    # inline_loading variable already set above (line ~92)
 
     # Process app metadata extraction function
     process_app_metadata() {
@@ -221,7 +166,35 @@ scan_applications() {
         local output_file="$2"
         local current_epoch="$3"
 
-        IFS='|' read -r app_path app_name bundle_id display_name <<< "$app_data_tuple"
+        IFS='|' read -r app_path app_name bundle_id <<< "$app_data_tuple"
+
+        # Get localized display name (moved from first pass for better performance)
+        local display_name="$app_name"
+        if [[ -f "$app_path/Contents/Info.plist" ]]; then
+            # Try to get localized name from system metadata (best for i18n)
+            local md_display_name
+            md_display_name=$(run_with_timeout 0.05 mdls -name kMDItemDisplayName -raw "$app_path" 2> /dev/null || echo "")
+
+            # Get bundle names
+            local bundle_display_name
+            bundle_display_name=$(plutil -extract CFBundleDisplayName raw "$app_path/Contents/Info.plist" 2> /dev/null)
+            local bundle_name
+            bundle_name=$(plutil -extract CFBundleName raw "$app_path/Contents/Info.plist" 2> /dev/null)
+
+            # Priority order for name selection (prefer localized names):
+            # 1. System metadata display name (kMDItemDisplayName) - respects system language
+            # 2. CFBundleDisplayName - usually localized
+            # 3. CFBundleName - fallback
+            # 4. App folder name - last resort
+
+            if [[ -n "$md_display_name" && "$md_display_name" != "(null)" && "$md_display_name" != "$app_name" ]]; then
+                display_name="$md_display_name"
+            elif [[ -n "$bundle_display_name" && "$bundle_display_name" != "(null)" ]]; then
+                display_name="$bundle_display_name"
+            elif [[ -n "$bundle_name" && "$bundle_name" != "(null)" ]]; then
+                display_name="$bundle_name"
+            fi
+        fi
 
         # Parallel size calculation
         local app_size="N/A"
@@ -293,9 +266,9 @@ scan_applications() {
             local completed=$(cat "$progress_file" 2> /dev/null || echo 0)
             local c="${spinner_chars:$((i % 4)):1}"
             if [[ $inline_loading == true ]]; then
-                printf "\033[H\033[2K%s Scanning applications... %d/%d" "$c" "$completed" "$total_apps" >&2
+                printf "\033[H\033[2K%s Scanning applications... %d/%d\n" "$c" "$completed" "$total_apps" >&2
             else
-                echo -ne "\r\033[K%s Scanning applications... %d/%d" "$c" "$completed" "$total_apps" >&2
+                printf "\r\033[K%s Scanning applications... %d/%d" "$c" "$completed" "$total_apps" >&2
             fi
             ((i++))
             sleep 0.1 2> /dev/null || sleep 1
@@ -346,11 +319,29 @@ scan_applications() {
     fi
 
     # Sort by last used (oldest first) and cache the result
+    # Show brief processing message for large app lists
+    if [[ $total_apps -gt 50 ]]; then
+        if [[ $inline_loading == true ]]; then
+            printf "\033[H\033[2KProcessing %d applications...\n" "$total_apps" >&2
+        else
+            printf "\rProcessing %d applications...    " "$total_apps" >&2
+        fi
+    fi
+
     sort -t'|' -k1,1n "$temp_file" > "${temp_file}.sorted" || {
         rm -f "$temp_file"
         return 1
     }
     rm -f "$temp_file"
+
+    # Clear processing message
+    if [[ $total_apps -gt 50 ]]; then
+        if [[ $inline_loading == true ]]; then
+            printf "\033[H\033[2K" >&2
+        else
+            printf "\r\033[K" >&2
+        fi
+    fi
 
     # Save to cache (simplified - no metadata)
     cp "${temp_file}.sorted" "$cache_file" 2> /dev/null || true

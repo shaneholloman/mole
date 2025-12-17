@@ -99,9 +99,11 @@ show_optimization_summary() {
     fi
     summary_details+=("$summary_line4")
 
-    if [[ "${OPTIMIZE_SHOW_TOUCHID_TIP:-false}" == "true" ]]; then
-        echo -e "${YELLOW}☻${NC} Run ${GRAY}mo touchid${NC} to approve sudo via Touch ID"
+    if [[ -n "${AUTO_FIX_SUMMARY:-}" ]]; then
+        summary_details+=("$AUTO_FIX_SUMMARY")
     fi
+
+    # Fix: Ensure summary is always printed for optimizations
     print_summary_block "$summary_title" "${summary_details[@]}"
 }
 
@@ -245,6 +247,11 @@ collect_security_fix_actions() {
             SECURITY_FIXES+=("gatekeeper|Enable Gatekeeper (App download protection)")
         fi
     fi
+    if touchid_supported && ! touchid_configured; then
+        if ! is_whitelisted "touchid"; then
+            SECURITY_FIXES+=("touchid|Enable Touch ID for sudo")
+        fi
+    fi
 
     ((${#SECURITY_FIXES[@]} > 0))
 }
@@ -301,6 +308,13 @@ apply_gatekeeper_fix() {
     return 1
 }
 
+apply_touchid_fix() {
+    if "$SCRIPT_DIR/bin/touchid.sh" enable; then
+        return 0
+    fi
+    return 1
+}
+
 perform_security_fixes() {
     if ! ensure_sudo_session "Security changes require admin access"; then
         echo -e "${YELLOW}${ICON_WARNING}${NC} Skipped security fixes (sudo denied)"
@@ -316,6 +330,9 @@ perform_security_fixes() {
                 ;;
             gatekeeper)
                 apply_gatekeeper_fix && ((applied++))
+                ;;
+            touchid)
+                apply_touchid_fix && ((applied++))
                 ;;
         esac
     done
@@ -496,10 +513,6 @@ main() {
 
     export OPTIMIZE_SAFE_COUNT=$safe_count
     export OPTIMIZE_CONFIRM_COUNT=$confirm_count
-    export OPTIMIZE_SHOW_TOUCHID_TIP="false"
-    if touchid_supported && ! touchid_configured; then
-        export OPTIMIZE_SHOW_TOUCHID_TIP="true"
-    fi
 
     # Show optimization summary at the end
     show_optimization_summary

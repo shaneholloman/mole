@@ -22,8 +22,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/core/common.sh"
 
 # Version info
-VERSION="1.13.0"
-MOLE_TAGLINE="can dig deep to clean your Mac."
+VERSION="1.13.5"
+MOLE_TAGLINE="Deep clean and optimize your Mac."
 
 # Check if Touch ID is already configured
 is_touchid_configured() {
@@ -181,7 +181,44 @@ EOF
 }
 
 show_version() {
-    printf '\nMole version %s\n\n' "$VERSION"
+    local os_ver
+    if command -v sw_vers > /dev/null; then
+        os_ver=$(sw_vers -productVersion)
+    else
+        os_ver="Unknown"
+    fi
+
+    local arch
+    arch=$(uname -m)
+
+    local kernel
+    kernel=$(uname -r)
+
+    local sip_status
+    if command -v csrutil > /dev/null; then
+        sip_status=$(csrutil status 2> /dev/null | grep -o "enabled\|disabled" || echo "Unknown")
+        # Capitalize first letter
+        sip_status="$(tr '[:lower:]' '[:upper:]' <<< ${sip_status:0:1})${sip_status:1}"
+    else
+        sip_status="Unknown"
+    fi
+
+    local disk_free
+    disk_free=$(df -h / 2> /dev/null | awk 'NR==2 {print $4}' || echo "Unknown")
+
+    local install_method="Manual"
+    if is_homebrew_install; then
+        install_method="Homebrew"
+    fi
+
+    printf '\nMole version %s\n' "$VERSION"
+    printf 'macOS: %s\n' "$os_ver"
+    printf 'Architecture: %s\n' "$arch"
+    printf 'Kernel: %s\n' "$kernel"
+    printf 'SIP: %s\n' "$sip_status"
+    printf 'Disk Free: %s\n' "$disk_free"
+    printf 'Install: %s\n' "$install_method"
+    printf 'Shell: %s\n\n' "${SHELL:-Unknown}"
 }
 
 show_help() {

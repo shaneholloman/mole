@@ -42,6 +42,11 @@ _request_password() {
     # Extra safety: ensure sudo cache is cleared before password input
     sudo -k 2> /dev/null
 
+    # Save original terminal settings and ensure they're restored on exit
+    local stty_orig
+    stty_orig=$(stty -g < "$tty_path" 2> /dev/null || echo "")
+    trap '[[ -n "${stty_orig:-}" ]] && stty "${stty_orig:-}" < "$tty_path" 2> /dev/null || true' RETURN
+
     while ((attempts < 3)); do
         local password=""
 
@@ -52,7 +57,13 @@ _request_password() {
         fi
 
         printf "${PURPLE}${ICON_ARROW}${NC} Password: " > "$tty_path"
-        IFS= read -r -s password < "$tty_path" || password=""
+
+        # Disable terminal echo to hide password input
+        stty -echo -icanon min 1 time 0 < "$tty_path" 2> /dev/null || true
+        IFS= read -r password < "$tty_path" || password=""
+        # Restore terminal echo immediately
+        stty echo icanon < "$tty_path" 2> /dev/null || true
+
         printf "\n" > "$tty_path"
 
         if [[ -z "$password" ]]; then

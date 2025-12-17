@@ -82,6 +82,7 @@ declare -a DEFAULT_WHITELIST_PATTERNS=(
     "$HOME/Library/Caches/org.R-project.R/R/renv/*"
     "$HOME/Library/Caches/JetBrains*"
     "$HOME/Library/Caches/com.jetbrains.toolbox*"
+    "$HOME/Library/Caches/com.apple.finder"
     "$FINDER_METADATA_SENTINEL"
 )
 
@@ -245,27 +246,53 @@ bytes_to_human_kb() {
 
 # Get brand-friendly name for an application
 # Args: $1 - application name
-# Returns: branded name if mapping exists, original name otherwise
+# Returns: localized name based on system language preference
 get_brand_name() {
     local name="$1"
 
-    case "$name" in
-        "qiyimac" | "爱奇艺") echo "iQiyi" ;;
-        "wechat" | "微信") echo "WeChat" ;;
-        "QQ") echo "QQ" ;;
-        "VooV Meeting" | "腾讯会议") echo "VooV Meeting" ;;
-        "dingtalk" | "钉钉") echo "DingTalk" ;;
-        "NeteaseMusic" | "网易云音乐") echo "NetEase Music" ;;
-        "BaiduNetdisk" | "百度网盘") echo "Baidu NetDisk" ;;
-        "alipay" | "支付宝") echo "Alipay" ;;
-        "taobao" | "淘宝") echo "Taobao" ;;
-        "futunn" | "富途牛牛") echo "Futu NiuNiu" ;;
-        "tencent lemon" | "Tencent Lemon Cleaner") echo "Tencent Lemon" ;;
-        "keynote" | "Keynote") echo "Keynote" ;;
-        "pages" | "Pages") echo "Pages" ;;
-        "numbers" | "Numbers") echo "Numbers" ;;
-        *) echo "$name" ;;
-    esac
+    # Detect if system primary language is Chinese
+    local is_chinese=false
+    local sys_lang
+    sys_lang=$(defaults read -g AppleLanguages 2> /dev/null | grep -o 'zh-Hans\|zh-Hant\|zh' | head -1 || echo "")
+    [[ -n "$sys_lang" ]] && is_chinese=true
+
+    # Return localized names based on system language
+    if [[ "$is_chinese" == true ]]; then
+        # Chinese system - prefer Chinese names
+        case "$name" in
+            "qiyimac" | "iQiyi") echo "爱奇艺" ;;
+            "wechat" | "WeChat") echo "微信" ;;
+            "QQ") echo "QQ" ;;
+            "VooV Meeting") echo "腾讯会议" ;;
+            "dingtalk" | "DingTalk") echo "钉钉" ;;
+            "NeteaseMusic" | "NetEase Music") echo "网易云音乐" ;;
+            "BaiduNetdisk" | "Baidu NetDisk") echo "百度网盘" ;;
+            "alipay" | "Alipay") echo "支付宝" ;;
+            "taobao" | "Taobao") echo "淘宝" ;;
+            "futunn" | "Futu NiuNiu") echo "富途牛牛" ;;
+            "tencent lemon" | "Tencent Lemon Cleaner" | "Tencent Lemon") echo "腾讯柠檬清理" ;;
+            *) echo "$name" ;;
+        esac
+    else
+        # Non-Chinese system - use English names
+        case "$name" in
+            "qiyimac" | "爱奇艺") echo "iQiyi" ;;
+            "wechat" | "微信") echo "WeChat" ;;
+            "QQ") echo "QQ" ;;
+            "腾讯会议") echo "VooV Meeting" ;;
+            "dingtalk" | "钉钉") echo "DingTalk" ;;
+            "网易云音乐") echo "NetEase Music" ;;
+            "百度网盘") echo "Baidu NetDisk" ;;
+            "alipay" | "支付宝") echo "Alipay" ;;
+            "taobao" | "淘宝") echo "Taobao" ;;
+            "富途牛牛") echo "Futu NiuNiu" ;;
+            "腾讯柠檬清理" | "Tencent Lemon Cleaner") echo "Tencent Lemon" ;;
+            "keynote" | "Keynote") echo "Keynote" ;;
+            "pages" | "Pages") echo "Pages" ;;
+            "numbers" | "Numbers") echo "Numbers" ;;
+            *) echo "$name" ;;
+        esac
+    fi
 }
 
 # ============================================================================

@@ -74,6 +74,9 @@ fix_broken_login_items() {
     local launch_agents_dir="$HOME/Library/LaunchAgents"
     [[ -d "$launch_agents_dir" ]] || return 0
 
+    # Check whitelist
+    if command -v is_whitelisted > /dev/null && is_whitelisted "check_login_items"; then return 0; fi
+
     local broken_count=0
 
     while IFS= read -r plist_file; do
@@ -96,6 +99,9 @@ fix_broken_login_items() {
             # Try ProgramArguments array (first element)
             program=$(plutil -extract ProgramArguments.0 raw "$plist_file" 2> /dev/null || echo "")
         fi
+
+        # Expand tilde in path if present
+        program="${program/#\~/$HOME}"
 
         # Skip if no program found or program exists
         [[ -z "$program" ]] && continue

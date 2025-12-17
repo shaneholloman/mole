@@ -1,6 +1,6 @@
 <div align="center">
   <h1>Mole</h1>
-  <p><em>Dig deep like a mole to optimize your Mac.</em></p>
+  <p><em>Deep clean and optimize your Mac.</em></p>
 </div>
 
 <p align="center">
@@ -18,15 +18,15 @@
 
 ## Features
 
-- **All-in-one toolkit** equal to CleanMyMac + AppCleaner + DaisyDisk + Sensei + iStat in one **trusted binary**
-- **Deep cleanup** finds and removes caches, temp files, browser leftovers, and junk to **free up tens of gigabytes**
-- **Smart uninstall** finds app bundles plus launch agents, settings, caches, logs, and **leftover files**
-- **Disk insight + optimization** show large files, display folders, **rebuild caches**, clean swap, refresh services
-- **Live status** shows CPU, GPU, memory, disk, network, battery, and proxy data so you can **find problems**
+- **All-in-one toolkit** combining the power of CleanMyMac, AppCleaner, DaisyDisk, Sensei, and iStat in one **trusted binary**
+- **Deep cleanup** scans and removes caches, logs, browser leftovers, and junk to **reclaim tens of gigabytes**
+- **Smart uninstall** completely removes apps including launch agents, preferences, caches, and **hidden leftovers**
+- **Disk insight + optimization** visualizes usage, handles large files, **rebuilds caches**, cleans swap, and refreshes services
+- **Live status** monitors CPU, GPU, memory, disk, network, battery, and proxy stats to **diagnose issues**
 
 ## Quick Start
 
-**Install:**
+**Installation:**
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/tw93/mole/main/install.sh | bash
@@ -63,12 +63,12 @@ mo optimize --whitelist      # Adjust protected optimization items
 
 ## Tips
 
-- **Terminal**: iTerm2 has known compatibility issues, use Alacritty, kitty, WezTerm, Ghostty, or Warp instead
-- **Safety**: Built with strict protections. See our [Security Audit](SECURITY_AUDIT.md). Preview with `mo clean --dry-run`
-- **Whitelist**: Use `mo clean --whitelist` to manage protected caches
-- **Touch ID**: Run `mo touchid` to approve sudo with Touch ID instead of password
-- **Navigation**: All menus support Vim keys `h/j/k/l` in addition to arrow keys
-- **Debug**: Use `--debug` flag to see detailed logs: `mo clean --debug`
+- **Terminal**: iTerm2 has known compatibility issues; we recommend Alacritty, kitty, WezTerm, Ghostty, or Warp.
+- **Safety**: Built with strict protections. See our [Security Audit](SECURITY_AUDIT.md). Preview changes with `mo clean --dry-run`.
+- **Whitelist**: Manage protected paths with `mo clean --whitelist`.
+- **Touch ID**: Enable Touch ID for sudo commands by running `mo touchid`.
+- **Navigation**: Supports standard arrow keys and Vim bindings (`h/j/k/l`).
+- **Debug**: View detailed logs by appending the `--debug` flag (e.g., `mo clean --debug`).
 
 ## Features in Detail
 
@@ -195,10 +195,10 @@ Adds 5 commands: `clean`, `uninstall`, `optimize`, `analyze`, `status`. Finds yo
 
 <a href="https://miaoyan.app/cats.html?name=Mole"><img src="https://miaoyan.app/assets/sponsors.svg" width="1000px" /></a>
 
-- If Mole freed storage for you, consider starring the repo or sharing it with friends needing a cleaner Mac.
-- Have ideas or fixes? Open an issue or PR and help shape Mole's future together with the community.
-- Report bugs by running commands with `--debug` flag and sharing the output: `mo clean --debug`
-- Love cats? Treat Tangyuan and Cola to canned food via <a href="https://miaoyan.app/cats.html?name=Mole" target="_blank">this link</a> and keep the mascots purring.
+- If Mole saved you space, consider starring the repo or sharing it with friends who need a cleaner Mac.
+- Have ideas or fixes? Open an issue or PR to help shape Mole's future with the community.
+
+- Love cats? Treat Tangyuan and Cola to canned food via <a href="https://miaoyan.app/cats.html?name=Mole" target="_blank">this link</a> to keep our mascots purring.
 
 ## License
 

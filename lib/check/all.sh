@@ -275,98 +275,37 @@ SOFTWARE_UPDATE_LIST=""
 get_software_updates() {
     local cache_file="$CACHE_DIR/softwareupdate_list"
 
-    if [[ -z "$SOFTWARE_UPDATE_LIST" ]]; then
-        # Check cache first
-        if is_cache_valid "$cache_file"; then
-            SOFTWARE_UPDATE_LIST=$(cat "$cache_file" 2> /dev/null || echo "")
-        else
-            # Show spinner while checking (only on first call)
-            local show_spinner=false
-            if [[ -t 1 && -z "${SOFTWAREUPDATE_SPINNER_SHOWN:-}" ]]; then
-                start_inline_spinner "Checking system updates (querying Apple servers)..."
-                show_spinner=true
-                export SOFTWAREUPDATE_SPINNER_SHOWN="true"
-            fi
+    # Optimized: Use defaults to check if updates are pending (much faster)
+    local pending_updates
+    pending_updates=$(defaults read /Library/Preferences/com.apple.SoftwareUpdate LastRecommendedUpdatesAvailable 2> /dev/null || echo "0")
 
-            SOFTWARE_UPDATE_LIST=$(softwareupdate -l 2> /dev/null || echo "")
-            # Save to cache
-            echo "$SOFTWARE_UPDATE_LIST" > "$cache_file" 2> /dev/null || true
-
-            # Stop spinner
-            if [[ "$show_spinner" == "true" ]]; then
-                stop_inline_spinner
-            fi
-        fi
+    if [[ "$pending_updates" -gt 0 ]]; then
+        echo "Updates Available"
+    else
+        echo ""
     fi
-    echo "$SOFTWARE_UPDATE_LIST"
 }
 
 check_appstore_updates() {
-    local spinner_started=false
-    if [[ -t 1 ]]; then
-        printf "  Checking App Store updates...\r"
-        start_inline_spinner "Checking App Store updates (querying Apple servers)..."
-        spinner_started=true
-        export SOFTWAREUPDATE_SPINNER_SHOWN="external"
-    else
-        echo "Checking App Store updates..."
-    fi
-
-    local update_list=""
-    update_list=$(get_software_updates | grep -v "Software Update Tool" | grep "^\*" | grep -vi "macOS" || echo "")
-
-    if [[ "$spinner_started" == "true" ]]; then
-        stop_inline_spinner
-        unset SOFTWAREUPDATE_SPINNER_SHOWN
-    fi
-
-    local update_count=0
-    if [[ -n "$update_list" ]]; then
-        update_count=$(echo "$update_list" | wc -l | tr -d ' ')
-    fi
-
-    export APPSTORE_UPDATE_COUNT=$update_count
-
-    if [[ $update_count -gt 0 ]]; then
-        echo -e "  ${YELLOW}${ICON_WARNING}${NC} App Store    ${YELLOW}${update_count} apps${NC} need update"
-        echo -e "    ${GRAY}updates available in final step${NC}"
-    else
-        echo -e "  ${GREEN}✓${NC} App Store    Up to date"
-    fi
+    # Skipped for speed optimization - consolidated into check_macos_update
+    # We can't easily distinguish app store vs macos updates without the slow softwareupdate -l call
+    export APPSTORE_UPDATE_COUNT=0
 }
 
 check_macos_update() {
     # Check whitelist
     if command -v is_whitelisted > /dev/null && is_whitelisted "check_macos_updates"; then return; fi
-    local spinner_started=false
-    if [[ -t 1 ]]; then
-        printf "  Checking macOS updates...\r"
-        start_inline_spinner "Checking macOS updates (querying Apple servers)..."
-        spinner_started=true
-        export SOFTWAREUPDATE_SPINNER_SHOWN="external"
-    else
-        echo "Checking macOS updates..."
+
+    # Fast check using system preferences
+    local updates_available="false"
+    if [[ $(get_software_updates) == "Updates Available" ]]; then
+        updates_available="true"
     fi
 
-    # Check for macOS system update using cached list
-    local macos_update=""
-    macos_update=$(get_software_updates | grep -i "macOS" | head -1 || echo "")
+    export MACOS_UPDATE_AVAILABLE="$updates_available"
 
-    if [[ "$spinner_started" == "true" ]]; then
-        stop_inline_spinner
-        unset SOFTWAREUPDATE_SPINNER_SHOWN
-    fi
-
-    export MACOS_UPDATE_AVAILABLE="false"
-
-    if [[ -n "$macos_update" ]]; then
-        export MACOS_UPDATE_AVAILABLE="true"
-        local version=$(echo "$macos_update" | grep -o '[0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?' | head -1)
-        if [[ -n "$version" ]]; then
-            echo -e "  ${YELLOW}${ICON_WARNING}${NC} macOS        ${YELLOW}${version} available${NC}"
-        else
-            echo -e "  ${YELLOW}${ICON_WARNING}${NC} macOS        ${YELLOW}Update available${NC}"
-        fi
+    if [[ "$updates_available" == "true" ]]; then
+        echo -e "  ${YELLOW}${ICON_WARNING}${NC} macOS        ${YELLOW}Update available${NC}"
         echo -e "    ${GRAY}update available in final step${NC}"
     else
         echo -e "  ${GREEN}✓${NC} macOS        Up to date"
