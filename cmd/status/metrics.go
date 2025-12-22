@@ -118,10 +118,13 @@ type BatteryStatus struct {
 }
 
 type ThermalStatus struct {
-	CPUTemp  float64
-	GPUTemp  float64
-	FanSpeed int
-	FanCount int
+	CPUTemp        float64
+	GPUTemp        float64
+	FanSpeed       int
+	FanCount       int
+	SystemPower    float64 // System power consumption in Watts
+	AdapterPower   float64 // AC adapter max power in Watts
+	BatteryPower   float64 // Battery charge/discharge power in Watts (positive = discharging)
 }
 
 type SensorReading struct {

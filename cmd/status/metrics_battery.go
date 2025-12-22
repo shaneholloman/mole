@@ -132,15 +132,13 @@ func getCachedPowerData() (health string, cycles int) {
 	for _, line := range lines {
 		lower := strings.ToLower(line)
 		if strings.Contains(lower, "cycle count") {
-			parts := strings.Split(line, ":")
-			if len(parts) == 2 {
-				cycles, _ = strconv.Atoi(strings.TrimSpace(parts[1]))
+			if _, after, found := strings.Cut(line, ":"); found {
+				cycles, _ = strconv.Atoi(strings.TrimSpace(after))
 			}
 		}
 		if strings.Contains(lower, "condition") {
-			parts := strings.Split(line, ":")
-			if len(parts) == 2 {
-				health = strings.TrimSpace(parts[1])
+			if _, after, found := strings.Cut(line, ":"); found {
+				health = strings.TrimSpace(after)
 			}
 		}
 	}
@@ -175,44 +173,93 @@ func collectThermal() ThermalStatus {
 
 	var thermal ThermalStatus
 
-	// Get fan info from cached system_profiler
+	// Get fan info and adapter power from cached system_profiler
 	out := getSystemPowerOutput()
 	if out != "" {
 		lines := strings.Split(out, "\n")
 		for _, line := range lines {
 			lower := strings.ToLower(line)
 			if strings.Contains(lower, "fan") && strings.Contains(lower, "speed") {
-				parts := strings.Split(line, ":")
-				if len(parts) == 2 {
+				if _, after, found := strings.Cut(line, ":"); found {
 					// Extract number from string like "1200 RPM"
-					numStr := strings.TrimSpace(parts[1])
-					numStr = strings.Split(numStr, " ")[0]
+					numStr := strings.TrimSpace(after)
+					numStr, _, _ = strings.Cut(numStr, " ")
 					thermal.FanSpeed, _ = strconv.Atoi(numStr)
 				}
 			}
 		}
 	}
 
-	// 1. Try ioreg battery temperature (simple, no sudo needed)
-	ctxIoreg, cancelIoreg := context.WithTimeout(context.Background(), 500*time.Millisecond)
-	defer cancelIoreg()
-	if out, err := runCmd(ctxIoreg, "sh", "-c", "ioreg -rn AppleSmartBattery | awk '/\"Temperature\"/ {print $3}'"); err == nil {
-		valStr := strings.TrimSpace(out)
-		if tempRaw, err := strconv.Atoi(valStr); err == nil && tempRaw > 0 {
-			thermal.CPUTemp = float64(tempRaw) / 100.0
-			return thermal
+	// Get power metrics from ioreg (fast, real-time data)
+	ctxPower, cancelPower := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancelPower()
+	if out, err := runCmd(ctxPower, "ioreg", "-rn", "AppleSmartBattery"); err == nil {
+		lines := strings.Split(out, "\n")
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+
+			// Get battery temperature
+			// Matches: "Temperature" = 3055 (note: space before =)
+			if _, after, found := strings.Cut(line, "\"Temperature\" = "); found {
+				valStr := strings.TrimSpace(after)
+				if tempRaw, err := strconv.Atoi(valStr); err == nil && tempRaw > 0 {
+					thermal.CPUTemp = float64(tempRaw) / 100.0
+				}
+			}
+
+			// Get adapter power (Watts)
+			// Read from current adapter: "AdapterDetails" = {"Watts"=140...}
+			// Skip historical data: "AppleRawAdapterDetails" = ({Watts=90}, {Watts=140})
+			if strings.Contains(line, "\"AdapterDetails\" = {") && !strings.Contains(line, "AppleRaw") {
+				if _, after, found := strings.Cut(line, "\"Watts\"="); found {
+					valStr := strings.TrimSpace(after)
+					// Remove trailing characters like , or }
+					valStr, _, _ = strings.Cut(valStr, ",")
+					valStr, _, _ = strings.Cut(valStr, "}")
+					valStr = strings.TrimSpace(valStr)
+					if watts, err := strconv.ParseFloat(valStr, 64); err == nil && watts > 0 {
+						thermal.AdapterPower = watts
+					}
+				}
+			}
+
+			// Get system power consumption (mW -> W)
+			// Matches: "SystemPowerIn"=12345
+			if _, after, found := strings.Cut(line, "\"SystemPowerIn\"="); found {
+				valStr := strings.TrimSpace(after)
+				valStr, _, _ = strings.Cut(valStr, ",")
+				valStr, _, _ = strings.Cut(valStr, "}")
+				valStr = strings.TrimSpace(valStr)
+				if powerMW, err := strconv.ParseFloat(valStr, 64); err == nil && powerMW > 0 {
+					thermal.SystemPower = powerMW / 1000.0
+				}
+			}
+
+			// Get battery power (mW -> W, positive = discharging)
+			// Matches: "BatteryPower"=12345
+			if _, after, found := strings.Cut(line, "\"BatteryPower\"="); found {
+				valStr := strings.TrimSpace(after)
+				valStr, _, _ = strings.Cut(valStr, ",")
+				valStr, _, _ = strings.Cut(valStr, "}")
+				valStr = strings.TrimSpace(valStr)
+				if powerMW, err := strconv.ParseFloat(valStr, 64); err == nil {
+					thermal.BatteryPower = powerMW / 1000.0
+				}
+			}
 		}
 	}
 
-	// 2. Try thermal level as a proxy (fallback)
-	ctx2, cancel2 := context.WithTimeout(context.Background(), 500*time.Millisecond)
-	defer cancel2()
-	out2, err := runCmd(ctx2, "sysctl", "-n", "machdep.xcpm.cpu_thermal_level")
-	if err == nil {
-		level, _ := strconv.Atoi(strings.TrimSpace(out2))
-		// Estimate temp: level 0-100 roughly maps to 40-100°C
-		if level >= 0 {
-			thermal.CPUTemp = 45 + float64(level)*0.5
+	// Fallback: Try thermal level as a proxy if temperature not found
+	if thermal.CPUTemp == 0 {
+		ctx2, cancel2 := context.WithTimeout(context.Background(), 500*time.Millisecond)
+		defer cancel2()
+		out2, err := runCmd(ctx2, "sysctl", "-n", "machdep.xcpm.cpu_thermal_level")
+		if err == nil {
+			level, _ := strconv.Atoi(strings.TrimSpace(out2))
+			// Estimate temp: level 0-100 roughly maps to 40-100°C
+			if level >= 0 {
+				thermal.CPUTemp = 45 + float64(level)*0.5
+			}
 		}
 	}
 

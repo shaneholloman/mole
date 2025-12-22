@@ -520,7 +520,7 @@ func renderBatteryCard(batts []BatteryStatus, thermal ThermalStatus) cardData {
 		}
 		lines = append(lines, fmt.Sprintf("Level  %s  %s", batteryProgressBar(b.Percent), percentText))
 
-		// Line 2: status
+		// Line 2: status with power info
 		statusIcon := ""
 		statusStyle := subtleStyle
 		if statusLower == "charging" || statusLower == "charged" {
@@ -536,6 +536,18 @@ func renderBatteryCard(batts []BatteryStatus, thermal ThermalStatus) cardData {
 		}
 		if b.TimeLeft != "" {
 			statusText += " · " + b.TimeLeft
+		}
+		// Add power information
+		if statusLower == "charging" || statusLower == "charged" {
+			// AC powered - show system power consumption
+			if thermal.SystemPower > 0 {
+				statusText += fmt.Sprintf(" · %.0fW", thermal.SystemPower)
+			} else if thermal.AdapterPower > 0 {
+				statusText += fmt.Sprintf(" · %.0fW Adapter", thermal.AdapterPower)
+			}
+		} else if thermal.BatteryPower > 0 {
+			// Battery powered - show discharge rate
+			statusText += fmt.Sprintf(" · %.0fW", thermal.BatteryPower)
 		}
 		lines = append(lines, statusStyle.Render(statusText+statusIcon))
 
