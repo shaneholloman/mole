@@ -642,14 +642,13 @@ is_path_whitelisted() {
     [[ ${#WHITELIST_PATTERNS[@]} -eq 0 ]] && return 1
 
     for pattern in "${WHITELIST_PATTERNS[@]}"; do
-        # Expand tilde in whitelist pattern for comparison
-        local expanded_pattern="${pattern/#\~/$HOME}"
-        expanded_pattern="${expanded_pattern%/}"
+        # Pattern is already expanded/normalized in bin/clean.sh
+        local check_pattern="${pattern%/}"
 
         # Check for exact match or glob pattern match
         # shellcheck disable=SC2053
-        if [[ "$normalized_target" == "$expanded_pattern" ]] ||
-            [[ "$normalized_target" == $expanded_pattern ]]; then
+        if [[ "$normalized_target" == "$check_pattern" ]] ||
+            [[ "$normalized_target" == $check_pattern ]]; then
             return 0
         fi
     done

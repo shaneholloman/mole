@@ -107,30 +107,8 @@ clean_dev_docker() {
             if [[ "$docker_running" == "true" ]]; then
                 clean_tool_cache "Docker build cache" docker builder prune -af
             else
-                if [[ -t 0 ]]; then
-                    echo -ne "  ${YELLOW}${ICON_WARNING}${NC} Docker not running. ${GRAY}Enter${NC} retry / ${GRAY}any key${NC} skip: "
-                    local key
-                    IFS= read -r -s -n1 key || key=""
-                    printf "\r\033[2K"
-                    if [[ -z "$key" || "$key" == $'\n' || "$key" == $'\r' ]]; then
-                        start_section_spinner "Retrying Docker connection..."
-                        local retry_success=false
-                        if run_with_timeout 3 docker info > /dev/null 2>&1; then
-                            retry_success=true
-                        fi
-                        stop_section_spinner
-                        if [[ "$retry_success" == "true" ]]; then
-                            clean_tool_cache "Docker build cache" docker builder prune -af
-                        else
-                            echo -e "  ${GRAY}${ICON_SUCCESS}${NC} Docker build cache · still not running"
-                        fi
-                    else
-                        echo -e "  ${GRAY}${ICON_SUCCESS}${NC} Docker build cache · skipped"
-                    fi
-                else
-                    echo -e "  ${GRAY}${ICON_SUCCESS}${NC} Docker build cache · daemon not running"
-                fi
-                note_activity
+                # Docker not running - silently skip without user interaction
+                debug_log "Docker daemon not running, skipping Docker cache cleanup"
             fi
         else
             note_activity

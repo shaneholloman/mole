@@ -24,8 +24,12 @@ FAILED=0
 # 1. ShellCheck
 echo "1. Running ShellCheck..."
 if command -v shellcheck > /dev/null 2>&1; then
-    if shellcheck mole bin/*.sh 2> /dev/null &&
-        find lib -name "*.sh" -type f -exec shellcheck {} + 2> /dev/null; then
+    # Optimize: Collect all files first, then pass to shellcheck in one call
+    SHELL_FILES=()
+    while IFS= read -r file; do
+        SHELL_FILES+=("$file")
+    done < <(find lib -name "*.sh" -type f)
+    if shellcheck mole bin/*.sh "${SHELL_FILES[@]}" 2> /dev/null; then
         printf "${GREEN}✓ ShellCheck passed${NC}\n"
     else
         printf "${RED}✗ ShellCheck failed${NC}\n"
@@ -38,9 +42,23 @@ echo ""
 
 # 2. Syntax Check
 echo "2. Running syntax check..."
-if bash -n mole &&
-    bash -n bin/*.sh 2> /dev/null &&
-    find lib -name "*.sh" -type f -exec bash -n {} \; 2> /dev/null; then
+SYNTAX_OK=true
+
+# Check main file
+bash -n mole 2> /dev/null || SYNTAX_OK=false
+
+# Check all shell files without requiring bash 4+
+# Note: bash -n must check files one-by-one (can't batch process)
+if [[ "$SYNTAX_OK" == "true" ]]; then
+    while IFS= read -r file; do
+        bash -n "$file" 2> /dev/null || {
+            SYNTAX_OK=false
+            break
+        }
+    done < <(find bin lib -name "*.sh" -type f)
+fi
+
+if [[ "$SYNTAX_OK" == "true" ]]; then
     printf "${GREEN}✓ Syntax check passed${NC}\n"
 else
     printf "${RED}✗ Syntax check failed${NC}\n"

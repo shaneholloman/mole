@@ -28,7 +28,7 @@ setup() {
 }
 
 @test "mo clean --dry-run skips system cleanup in non-interactive mode" {
-    run env HOME="$HOME" "$PROJECT_ROOT/mole" clean --dry-run
+    run env HOME="$HOME" MOLE_TEST_MODE=1 "$PROJECT_ROOT/mole" clean --dry-run
     [ "$status" -eq 0 ]
     [[ "$output" == *"Dry Run Mode"* ]]
     [[ "$output" != *"Deep system-level cleanup"* ]]
@@ -38,7 +38,7 @@ setup() {
     mkdir -p "$HOME/Library/Caches/TestApp"
     echo "cache data" > "$HOME/Library/Caches/TestApp/cache.tmp"
 
-    run env HOME="$HOME" "$PROJECT_ROOT/mole" clean --dry-run
+    run env HOME="$HOME" MOLE_TEST_MODE=1 "$PROJECT_ROOT/mole" clean --dry-run
     [ "$status" -eq 0 ]
     [[ "$output" == *"User app cache"* ]]
     [[ "$output" == *"Potential space"* ]]
@@ -53,7 +53,7 @@ setup() {
 $HOME/Library/Caches/WhitelistedApp*
 EOF
 
-    run env HOME="$HOME" "$PROJECT_ROOT/mole" clean --dry-run
+    run env HOME="$HOME" MOLE_TEST_MODE=1 "$PROJECT_ROOT/mole" clean --dry-run
     [ "$status" -eq 0 ]
     [[ "$output" == *"Protected"* ]]
     [ -f "$HOME/Library/Caches/WhitelistedApp/data.tmp" ]
@@ -63,7 +63,7 @@ EOF
     mkdir -p "$HOME/.m2/repository/org/example"
     echo "dependency" > "$HOME/.m2/repository/org/example/lib.jar"
 
-    run env HOME="$HOME" "$PROJECT_ROOT/mole" clean --dry-run
+    run env HOME="$HOME" MOLE_TEST_MODE=1 "$PROJECT_ROOT/mole" clean --dry-run
     [ "$status" -eq 0 ]
     [ -f "$HOME/.m2/repository/org/example/lib.jar" ]
     [[ "$output" != *"Maven repository cache"* ]]
