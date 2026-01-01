@@ -28,6 +28,8 @@ readonly PURGE_TARGETS=(
     ".turbo"        # Turborepo cache
     ".parcel-cache" # Parcel bundler
     ".dart_tool"    # Flutter/Dart build cache
+    ".zig-cache"    # Zig
+    "zig-out"       # Zig
 )
 # Minimum age in days before considering for cleanup.
 readonly MIN_AGE_DAYS=7
@@ -65,6 +67,8 @@ readonly PROJECT_INDICATORS=(
     "composer.json"
     "pubspec.yaml"
     "Makefile"
+    "build.zig"
+    "build.zig.zon"
     ".git"
 )
 
