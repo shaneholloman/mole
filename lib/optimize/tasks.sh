@@ -117,6 +117,32 @@ opt_system_maintenance() {
 
 # Refresh Finder caches (QuickLook/icon services).
 opt_cache_refresh() {
+    if [[ "${MO_DEBUG:-}" == "1" ]]; then
+        debug_operation_start "Finder Cache Refresh" "Refresh QuickLook thumbnails and icon services"
+        debug_operation_detail "Method" "Remove cache files and rebuild via qlmanage"
+        debug_operation_detail "Expected outcome" "Faster Finder preview generation, fixed icon display issues"
+        debug_risk_level "LOW" "Caches are automatically rebuilt"
+
+        local -a cache_targets=(
+            "$HOME/Library/Caches/com.apple.QuickLook.thumbnailcache"
+            "$HOME/Library/Caches/com.apple.iconservices.store"
+            "$HOME/Library/Caches/com.apple.iconservices"
+        )
+
+        debug_operation_detail "Files to be removed" ""
+        for target_path in "${cache_targets[@]}"; do
+            if [[ -e "$target_path" ]]; then
+                local size_kb
+                size_kb=$(get_path_size_kb "$target_path" 2>/dev/null || echo "0")
+                local size_human="unknown"
+                if [[ "$size_kb" -gt 0 ]]; then
+                    size_human=$(bytes_to_human "$((size_kb * 1024))")
+                fi
+                debug_file_action "  Will remove" "$target_path" "$size_human" ""
+            fi
+        done
+    fi
+
     if [[ "${MOLE_DRY_RUN:-0}" != "1" ]]; then
         qlmanage -r cache > /dev/null 2>&1 || true
         qlmanage -r > /dev/null 2>&1 || true
@@ -146,6 +172,14 @@ opt_cache_refresh() {
 
 # Old saved states cleanup.
 opt_saved_state_cleanup() {
+    if [[ "${MO_DEBUG:-}" == "1" ]]; then
+        debug_operation_start "App Saved State Cleanup" "Remove old application saved states"
+        debug_operation_detail "Method" "Find and remove .savedState folders older than $MOLE_SAVED_STATE_AGE_DAYS days"
+        debug_operation_detail "Location" "$HOME/Library/Saved Application State"
+        debug_operation_detail "Expected outcome" "Reduced disk usage, apps start with clean state"
+        debug_risk_level "LOW" "Old saved states, apps will create new ones"
+    fi
+
     local state_dir="$HOME/Library/Saved Application State"
 
     if [[ -d "$state_dir" ]]; then
@@ -188,6 +222,13 @@ opt_fix_broken_configs() {
 
 # DNS cache refresh.
 opt_network_optimization() {
+    if [[ "${MO_DEBUG:-}" == "1" ]]; then
+        debug_operation_start "Network Optimization" "Refresh DNS cache and restart mDNSResponder"
+        debug_operation_detail "Method" "Flush DNS cache via dscacheutil and killall mDNSResponder"
+        debug_operation_detail "Expected outcome" "Faster DNS resolution, fixed network connectivity issues"
+        debug_risk_level "LOW" "DNS cache is automatically rebuilt"
+    fi
+
     if [[ "${MOLE_DNS_FLUSHED:-0}" == "1" ]]; then
         opt_msg "DNS cache already refreshed"
         opt_msg "mDNSResponder already restarted"
@@ -204,6 +245,14 @@ opt_network_optimization() {
 
 # SQLite vacuum for Mail/Messages/Safari (safety checks applied).
 opt_sqlite_vacuum() {
+    if [[ "${MO_DEBUG:-}" == "1" ]]; then
+        debug_operation_start "Database Optimization" "Vacuum SQLite databases for Mail, Safari, and Messages"
+        debug_operation_detail "Method" "Run VACUUM command on databases after integrity check"
+        debug_operation_detail "Safety checks" "Skip if apps are running, verify integrity first, 20s timeout"
+        debug_operation_detail "Expected outcome" "Reduced database size, faster app performance"
+        debug_risk_level "LOW" "Only optimizes databases, does not delete data"
+    fi
+
     if ! command -v sqlite3 > /dev/null 2>&1; then
         echo -e "  ${GRAY}-${NC} Database optimization already optimal (sqlite3 unavailable)"
         return 0
@@ -335,6 +384,14 @@ opt_sqlite_vacuum() {
 
 # LaunchServices rebuild ("Open with" issues).
 opt_launch_services_rebuild() {
+    if [[ "${MO_DEBUG:-}" == "1" ]]; then
+        debug_operation_start "LaunchServices Rebuild" "Rebuild LaunchServices database"
+        debug_operation_detail "Method" "Run lsregister -r on system, user, and local domains"
+        debug_operation_detail "Purpose" "Fix \"Open with\" menu issues and file associations"
+        debug_operation_detail "Expected outcome" "Correct app associations, fixed duplicate entries"
+        debug_risk_level "LOW" "Database is automatically rebuilt"
+    fi
+
     if [[ -t 1 ]]; then
         start_inline_spinner ""
     fi
@@ -377,6 +434,13 @@ opt_launch_services_rebuild() {
 
 # Font cache rebuild.
 opt_font_cache_rebuild() {
+    if [[ "${MO_DEBUG:-}" == "1" ]]; then
+        debug_operation_start "Font Cache Rebuild" "Clear and rebuild font cache"
+        debug_operation_detail "Method" "Run atsutil databases -remove"
+        debug_operation_detail "Expected outcome" "Fixed font display issues, removed corrupted font cache"
+        debug_risk_level "LOW" "System automatically rebuilds font database"
+    fi
+
     local success=false
 
     if [[ "${MOLE_DRY_RUN:-0}" != "1" ]]; then
@@ -402,6 +466,14 @@ opt_font_cache_rebuild() {
 
 # Memory pressure relief.
 opt_memory_pressure_relief() {
+    if [[ "${MO_DEBUG:-}" == "1" ]]; then
+        debug_operation_start "Memory Pressure Relief" "Release inactive memory if pressure is high"
+        debug_operation_detail "Method" "Run purge command to clear inactive memory"
+        debug_operation_detail "Condition" "Only runs if memory pressure is warning/critical"
+        debug_operation_detail "Expected outcome" "More available memory, improved responsiveness"
+        debug_risk_level "LOW" "Safe system command, does not affect active processes"
+    fi
+
     if [[ "${MOLE_DRY_RUN:-0}" != "1" ]]; then
         if ! is_memory_pressure_high; then
             opt_msg "Memory pressure already optimal"
@@ -468,6 +540,14 @@ opt_network_stack_optimize() {
 
 # User directory permissions repair.
 opt_disk_permissions_repair() {
+    if [[ "${MO_DEBUG:-}" == "1" ]]; then
+        debug_operation_start "Disk Permissions Repair" "Reset user directory permissions"
+        debug_operation_detail "Method" "Run diskutil resetUserPermissions on user home directory"
+        debug_operation_detail "Condition" "Only runs if permissions issues are detected"
+        debug_operation_detail "Expected outcome" "Fixed file access issues, correct ownership"
+        debug_risk_level "MEDIUM" "Requires sudo, modifies permissions"
+    fi
+
     local user_id
     user_id=$(id -u)
 
@@ -504,6 +584,14 @@ opt_disk_permissions_repair() {
 
 # Bluetooth reset (skip if HID/audio active).
 opt_bluetooth_reset() {
+    if [[ "${MO_DEBUG:-}" == "1" ]]; then
+        debug_operation_start "Bluetooth Reset" "Restart Bluetooth daemon"
+        debug_operation_detail "Method" "Kill bluetoothd daemon (auto-restarts)"
+        debug_operation_detail "Safety" "Skips if active Bluetooth keyboard/mouse/audio detected"
+        debug_operation_detail "Expected outcome" "Fixed Bluetooth connectivity issues"
+        debug_risk_level "LOW" "Daemon auto-restarts, connections auto-reconnect"
+    fi
+
     local spinner_started="false"
     if [[ -t 1 ]]; then
         MOLE_SPINNER_PREFIX="  " start_inline_spinner "Checking Bluetooth..."
