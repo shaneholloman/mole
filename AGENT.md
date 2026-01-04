@@ -1,49 +1,114 @@
-# Mole AI Agent Notes
+# Mole AI Agent Guide
 
-Use this file as the single source of truth for how to work on Mole.
+Quick reference for AI assistants working on Mole (Mac system cleaner).
+**Last updated**: 2026-01-04
 
-## Principles
+## Safety Checklist
 
-- Safety first: never risk user data or system stability.
-- Never run destructive operations that could break the user's machine.
-- Do not delete user-important files; cleanup must be conservative and reversible.
-- Always use `safe_*` helpers (no raw `rm -rf`).
-- Keep changes small and confirm uncertain behavior.
-- Follow the local code style in the file you are editing (Bash 3.2 compatible).
-- Comments must be English, concise, and intent-focused.
-  - Use comments for safety boundaries, non-obvious logic, or flow context.
-  - Entry scripts start with ~3 short lines describing purpose/behavior.
-- Shell code must use shell-only helpers (no Python).
-- Go code must use Go-only helpers (no Python).
-- Do not remove installer flags `--prefix`/`--config` (update flow depends on them).
-- Do not commit or submit code changes unless explicitly requested.
-- You may use `gh` to access GitHub information when needed.
+Before any operation:
 
-## Architecture
+- Use `safe_*` helpers (never raw `rm -rf` or `find -delete`)
+- Check protection: `is_protected()`, `is_whitelisted()`
+- Test first: `MO_DRY_RUN=1 ./mole clean`
+- Validate syntax: `bash -n <file>`
+- Run tests: `./scripts/test.sh`
 
-- `mole`: main CLI entrypoint (menu + command routing).
-- `mo`: CLI alias wrapper.
-- `install.sh`: manual installer/updater (download/build + install).
-- `bin/`: command entry points (`clean.sh`, `uninstall.sh`, `optimize.sh`, `purge.sh`, `touchid.sh`,
-  `analyze.sh`, `status.sh`).
-- `lib/`: shell logic (`core/`, `clean/`, `ui/`).
-- `cmd/`: Go apps (`analyze/`, `status/`).
-- `scripts/`: build/test helpers.
-- `tests/`: BATS integration tests.
+## Never Do
+
+- Raw deletions without `safe_*` helpers
+- Remove `--prefix`/`--config` flags from install.sh
+- Commit code unless explicitly requested
+- Mix languages: Python in shell, shell in Go
+- Delete without checking protection lists
+
+## Architecture Quick Map
+
+```
+mole                   # CLI entrypoint (menu + routing)
+├── bin/              # Commands: clean, uninstall, optimize, analyze, status
+├── lib/              # Shell logic: core/, clean/, ui/
+├── cmd/              # Go apps: analyze/, status/
+├── tests/            # BATS integration tests
+└── scripts/          # Build and test automation
+```
+
+**Decision Tree**:
+
+- User cleanup logic → `lib/clean/<module>.sh`
+- Command entry → `bin/<command>.sh`
+- Core utils → `lib/core/<util>.sh`
+- Performance tool → `cmd/<tool>/*.go`
+- Tests → `tests/<test>.bats`
+
+## Common Commands
+
+```bash
+# Validation (run before suggesting changes)
+bash -n <file>                    # Syntax check
+./scripts/test.sh                 # Full test suite
+MO_DRY_RUN=1 ./mole clean         # Safe dry-run test
+
+# Development
+make build                        # Build Go binaries
+go run ./cmd/analyze              # Test without building
+bats tests/clean.bats -f "name"   # Specific test
+
+# Debugging
+MO_DEBUG=1 ./mole clean           # Verbose output
+```
+
+## Code Style Rules
+
+**Shell** (Bash 3.2 compatible):
+
+- 2-space indent, quote variables: `"$var"`
+- Use `[[` not `[`, prefer `$(cmd)` over backticks
+- Comments: English, intent-focused, for safety boundaries only
+- Entry scripts: 2-3 line header describing purpose
+
+**Go**:
+
+- Standard conventions: `gofmt`, `go vet`
+- Never ignore errors
+
+## Key Helpers
+
+- `safe_rm <path>` - Protected deletion
+- `safe_find_delete <base> <pattern> <days> <type>` - Safe find+delete
+- `is_protected <path>` - Check system protection
+- `is_whitelisted <name>` - Check user whitelist
+- `log_info/success/warn/error <msg>` - Logging
 
 ## Workflow
 
-- Shell work: add logic under `lib/`, call from `bin/`.
-- Go work: edit `cmd/<app>/*.go`.
-- Prefer dry-run modes while validating cleanup behavior.
+1. **Read first**: Never propose changes to unread code
+2. **Shell work**: Logic in `lib/`, called from `bin/`
+3. **Go work**: Edit `cmd/<app>/*.go`
+4. **Test**: Dry-run → BATS → full test suite
+5. **Style**: Match existing file conventions (Bash 3.2)
 
-## Build & Test
+## Example: Add New Cleanup
 
-- `./scripts/test.sh` runs unit/go/integration tests.
-- `make build` builds Go binaries for local development.
-- `go run ./cmd/analyze` for dev runs without building.
+```bash
+# 1. Create lib/clean/my_module.sh
+clean_my_cache() {
+  local dir="$HOME/Library/Caches/MyApp"
+  [[ -d "$dir" ]] && ! is_whitelisted "my_app" || return
+  safe_find_delete "$dir" "*" "30" "f"
+  log_success "Cleaned MyApp cache"
+}
 
-## Key Behaviors
+# 2. Call from bin/clean.sh
+source "${LIB_DIR}/clean/my_module.sh"
+clean_my_cache
 
-- `mole update` uses `install.sh` with `--prefix`/`--config`; keep these flags.
-- Cleanup must go through `safe_*` and respect protection lists.
+# 3. Test
+bats tests/clean.bats -f "my_cache"
+```
+
+## Troubleshooting
+
+- Tests fail → `bats tests/<file>.bats -f "test name"`
+- Syntax error → `bash -n <file>`
+- Permission denied → `./mole touchid`
+- Cleanup not working → Check `is_protected()` or `~/.config/mole/whitelist`
