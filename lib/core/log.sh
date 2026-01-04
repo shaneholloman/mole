@@ -97,6 +97,81 @@ debug_log() {
     fi
 }
 
+# Enhanced debug logging for operations
+debug_operation_start() {
+    local operation_name="$1"
+    local operation_desc="${2:-}"
+
+    if [[ "${MO_DEBUG:-}" == "1" ]]; then
+        # Output to stderr for immediate feedback
+        echo -e "${GRAY}[DEBUG] === $operation_name ===${NC}" >&2
+        [[ -n "$operation_desc" ]] && echo -e "${GRAY}[DEBUG] $operation_desc${NC}" >&2
+
+        # Also log to file
+        {
+            echo ""
+            echo "=== $operation_name ==="
+            [[ -n "$operation_desc" ]] && echo "Description: $operation_desc"
+        } >> "$DEBUG_LOG_FILE" 2> /dev/null || true
+    fi
+}
+
+# Log detailed operation information
+debug_operation_detail() {
+    local detail_type="$1"  # e.g., "Method", "Target", "Expected Outcome"
+    local detail_value="$2"
+
+    if [[ "${MO_DEBUG:-}" == "1" ]]; then
+        # Output to stderr
+        echo -e "${GRAY}[DEBUG] $detail_type: $detail_value${NC}" >&2
+
+        # Also log to file
+        echo "$detail_type: $detail_value" >> "$DEBUG_LOG_FILE" 2> /dev/null || true
+    fi
+}
+
+# Log individual file action with metadata
+debug_file_action() {
+    local action="$1"      # e.g., "Would remove", "Removing"
+    local file_path="$2"
+    local file_size="${3:-}"
+    local file_age="${4:-}"
+
+    if [[ "${MO_DEBUG:-}" == "1" ]]; then
+        local msg="  - $file_path"
+        [[ -n "$file_size" ]] && msg+=" ($file_size"
+        [[ -n "$file_age" ]] && msg+=", ${file_age} days old"
+        [[ -n "$file_size" ]] && msg+=")"
+
+        # Output to stderr
+        echo -e "${GRAY}[DEBUG] $action: $msg${NC}" >&2
+
+        # Also log to file
+        echo "$action: $msg" >> "$DEBUG_LOG_FILE" 2> /dev/null || true
+    fi
+}
+
+# Log risk level for operations
+debug_risk_level() {
+    local risk_level="$1"  # LOW, MEDIUM, HIGH
+    local reason="$2"
+
+    if [[ "${MO_DEBUG:-}" == "1" ]]; then
+        local color="$GRAY"
+        case "$risk_level" in
+            LOW) color="$GREEN" ;;
+            MEDIUM) color="$YELLOW" ;;
+            HIGH) color="$RED" ;;
+        esac
+
+        # Output to stderr with color
+        echo -e "${GRAY}[DEBUG] Risk Level: ${color}${risk_level}${GRAY} ($reason)${NC}" >&2
+
+        # Also log to file
+        echo "Risk Level: $risk_level ($reason)" >> "$DEBUG_LOG_FILE" 2> /dev/null || true
+    fi
+}
+
 # Log system information for debugging
 log_system_info() {
     # Only allow once per session
