@@ -261,9 +261,21 @@ Adds 5 commands: `clean`, `uninstall`, `optimize`, `analyze`, `status`. Mole aut
 
 Users from around the world are loving Mole! Join the community and share your experience.
 
+## Developers
+
+Mole's development can not be without these Hackers. They contributed a lot of capabilities for Mole. Also, welcome to follow them! ❤️
+
+<a href="https://github.com/tw93/mole/graphs/contributors">
+  <img src="https://raw.githubusercontent.com/tw93/mole/main/CONTRIBUTORS.svg?sanitize=true" alt="Contributors" width="1000" />
+</a>
+
 ## Support
 
+<details>
+<summary><strong>Sponsorship and Community</strong></summary>
+<br/>
 <a href="https://miaoyan.app/cats.html?name=Mole"><img src="https://miaoyan.app/assets/sponsors.svg" width="1000px" /></a>
+</details>
 
 - If Mole saved you space, consider starring the repo or sharing it with friends who need a cleaner Mac.
 - Have ideas or fixes? Check our [Contributing Guide](CONTRIBUTING.md), then open an issue or PR to help shape Mole's future.
