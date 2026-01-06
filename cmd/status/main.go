@@ -127,10 +127,7 @@ func animTick() tea.Cmd {
 
 func animTickWithSpeed(cpuUsage float64) tea.Cmd {
 	// Higher CPU = faster animation.
-	interval := 300 - int(cpuUsage*2.5)
-	if interval < 50 {
-		interval = 50
-	}
+	interval := max(300-int(cpuUsage*2.5), 50)
 	return tea.Tick(time.Duration(interval)*time.Millisecond, func(time.Time) tea.Msg { return animTickMsg{} })
 }
 

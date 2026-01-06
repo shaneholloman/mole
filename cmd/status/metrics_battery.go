@@ -68,11 +68,10 @@ func collectBatteries() (batts []BatteryStatus, err error) {
 }
 
 func parsePMSet(raw string, health string, cycles int, capacity int) []BatteryStatus {
-	lines := strings.Split(raw, "\n")
 	var out []BatteryStatus
 	var timeLeft string
 
-	for _, line := range lines {
+	for line := range strings.Lines(raw) {
 		// Time remaining.
 		if strings.Contains(line, "remaining") {
 			parts := strings.Fields(line)
@@ -128,8 +127,7 @@ func getCachedPowerData() (health string, cycles int, capacity int) {
 		return "", 0, 0
 	}
 
-	lines := strings.Split(out, "\n")
-	for _, line := range lines {
+	for line := range strings.Lines(out) {
 		lower := strings.ToLower(line)
 		if strings.Contains(lower, "cycle count") {
 			if _, after, found := strings.Cut(line, ":"); found {
@@ -183,8 +181,7 @@ func collectThermal() ThermalStatus {
 	// Fan info from cached system_profiler.
 	out := getSystemPowerOutput()
 	if out != "" {
-		lines := strings.Split(out, "\n")
-		for _, line := range lines {
+		for line := range strings.Lines(out) {
 			lower := strings.ToLower(line)
 			if strings.Contains(lower, "fan") && strings.Contains(lower, "speed") {
 				if _, after, found := strings.Cut(line, ":"); found {
@@ -200,8 +197,7 @@ func collectThermal() ThermalStatus {
 	ctxPower, cancelPower := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancelPower()
 	if out, err := runCmd(ctxPower, "ioreg", "-rn", "AppleSmartBattery"); err == nil {
-		lines := strings.Split(out, "\n")
-		for _, line := range lines {
+		for line := range strings.Lines(out) {
 			line = strings.TrimSpace(line)
 
 			// Battery temperature ("Temperature" = 3055).

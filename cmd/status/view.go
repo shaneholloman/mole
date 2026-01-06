@@ -66,10 +66,7 @@ func getMoleFrame(animFrame int, termWidth int) string {
 	body := moleBody[bodyIdx]
 
 	moleWidth := 15
-	maxPos := termWidth - moleWidth
-	if maxPos < 0 {
-		maxPos = 0
-	}
+	maxPos := max(termWidth-moleWidth, 0)
 
 	cycleLength := maxPos * 2
 	if cycleLength == 0 {
@@ -197,10 +194,7 @@ func renderCPUCard(cpu CPUStatus) cardData {
 		}
 		sort.Slice(cores, func(i, j int) bool { return cores[i].val > cores[j].val })
 
-		maxCores := 3
-		if len(cores) < maxCores {
-			maxCores = len(cores)
-		}
+		maxCores := min(len(cores), 3)
 		for i := 0; i < maxCores; i++ {
 			c := cores[i]
 			lines = append(lines, fmt.Sprintf("Core%-2d %s  %5.1f%%", c.idx+1, progressBar(c.val), c.val))
@@ -356,10 +350,7 @@ func formatDiskLine(label string, d DiskStatus) string {
 }
 
 func ioBar(rate float64) string {
-	filled := int(rate / 10.0)
-	if filled > 5 {
-		filled = 5
-	}
+	filled := min(int(rate/10.0), 5)
 	if filled < 0 {
 		filled = 0
 	}
@@ -391,10 +382,7 @@ func renderProcessCard(procs []ProcessInfo) cardData {
 }
 
 func miniBar(percent float64) string {
-	filled := int(percent / 20)
-	if filled > 5 {
-		filled = 5
-	}
+	filled := min(int(percent/20), 5)
 	if filled < 0 {
 		filled = 0
 	}
@@ -437,10 +425,7 @@ func renderNetworkCard(netStats []NetworkStatus, proxy ProxyStatus) cardData {
 }
 
 func netBar(rate float64) string {
-	filled := int(rate / 2.0)
-	if filled > 5 {
-		filled = 5
-	}
+	filled := min(int(rate/2.0), 5)
 	if filled < 0 {
 		filled = 0
 	}
@@ -551,10 +536,7 @@ func renderSensorsCard(sensors []SensorReading) cardData {
 
 func renderCard(data cardData, width int, height int) string {
 	titleText := data.icon + " " + data.title
-	lineLen := width - lipgloss.Width(titleText) - 2
-	if lineLen < 4 {
-		lineLen = 4
-	}
+	lineLen := max(width-lipgloss.Width(titleText)-2, 4)
 	header := titleStyle.Render(titleText) + "  " + lineStyle.Render(strings.Repeat("╌", lineLen))
 	content := header + "\n" + strings.Join(data.lines, "\n")
 
@@ -576,7 +558,7 @@ func progressBar(percent float64) string {
 	filled := int(percent / 100 * float64(total))
 
 	var builder strings.Builder
-	for i := 0; i < total; i++ {
+	for i := range total {
 		if i < filled {
 			builder.WriteString("█")
 		} else {
@@ -597,7 +579,7 @@ func batteryProgressBar(percent float64) string {
 	filled := int(percent / 100 * float64(total))
 
 	var builder strings.Builder
-	for i := 0; i < total; i++ {
+	for i := range total {
 		if i < filled {
 			builder.WriteString("█")
 		} else {
