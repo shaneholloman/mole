@@ -65,3 +65,6 @@ bin/status-darwin-*
 tests/tmp-*/
 tests/*.tmp
 tests/*.log
+
+session.json
+run_tests.ps1
