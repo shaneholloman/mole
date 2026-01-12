@@ -125,7 +125,7 @@ resolve_source_dir() {
 
     start_line_spinner "Fetching Mole source (${branch})..."
     if command -v curl > /dev/null 2>&1; then
-        if curl -fsSL -o "$tmp/mole.tar.gz" "$url" 2> /dev/null; then
+        if curl -fsSL --connect-timeout 10 --max-time 60 -o "$tmp/mole.tar.gz" "$url" 2> /dev/null; then
             if tar -xzf "$tmp/mole.tar.gz" -C "$tmp" 2> /dev/null; then
                 stop_line_spinner
 
