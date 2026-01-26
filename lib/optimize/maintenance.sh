@@ -17,16 +17,16 @@ fix_broken_preferences() {
         local filename
         filename=$(basename "$plist_file")
         case "$filename" in
-        com.apple.* | .GlobalPreferences* | loginwindow.plist)
-            continue
-            ;;
+            com.apple.* | .GlobalPreferences* | loginwindow.plist)
+                continue
+                ;;
         esac
 
-        plutil -lint "$plist_file" >/dev/null 2>&1 && continue
+        plutil -lint "$plist_file" > /dev/null 2>&1 && continue
 
-        safe_remove "$plist_file" true >/dev/null 2>&1 || true
+        safe_remove "$plist_file" true > /dev/null 2>&1 || true
         ((broken_count++))
-    done < <(command find "$prefs_dir" -maxdepth 1 -name "*.plist" -type f 2>/dev/null || true)
+    done < <(command find "$prefs_dir" -maxdepth 1 -name "*.plist" -type f 2> /dev/null || true)
 
     # Check ByHost preferences.
     local byhost_dir="$prefs_dir/ByHost"
@@ -37,16 +37,16 @@ fix_broken_preferences() {
             local filename
             filename=$(basename "$plist_file")
             case "$filename" in
-            com.apple.* | .GlobalPreferences*)
-                continue
-                ;;
+                com.apple.* | .GlobalPreferences*)
+                    continue
+                    ;;
             esac
 
-            plutil -lint "$plist_file" >/dev/null 2>&1 && continue
+            plutil -lint "$plist_file" > /dev/null 2>&1 && continue
 
-            safe_remove "$plist_file" true >/dev/null 2>&1 || true
+            safe_remove "$plist_file" true > /dev/null 2>&1 || true
             ((broken_count++))
-        done < <(command find "$byhost_dir" -name "*.plist" -type f 2>/dev/null || true)
+        done < <(command find "$byhost_dir" -name "*.plist" -type f 2> /dev/null || true)
     fi
 
     echo "$broken_count"

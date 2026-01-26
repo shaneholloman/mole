@@ -42,7 +42,7 @@ validate_path_for_deletion() {
     # Check symlink target if path is a symbolic link
     if [[ -L "$path" ]]; then
         local link_target
-        link_target=$(readlink "$path" 2>/dev/null) || {
+        link_target=$(readlink "$path" 2> /dev/null) || {
             log_error "Cannot read symlink: $path"
             return 1
         }
@@ -52,16 +52,16 @@ validate_path_for_deletion() {
         if [[ "$link_target" != /* ]]; then
             local link_dir
             link_dir=$(dirname "$path")
-            resolved_target=$(cd "$link_dir" 2>/dev/null && cd "$(dirname "$link_target")" 2>/dev/null && pwd)/$(basename "$link_target") || resolved_target=""
+            resolved_target=$(cd "$link_dir" 2> /dev/null && cd "$(dirname "$link_target")" 2> /dev/null && pwd)/$(basename "$link_target") || resolved_target=""
         fi
 
         # Validate resolved target against protected paths
         if [[ -n "$resolved_target" ]]; then
             case "$resolved_target" in
-            /System/* | /usr/bin/* | /usr/lib/* | /bin/* | /sbin/* | /private/etc/*)
-                log_error "Symlink points to protected system path: $path -> $resolved_target"
-                return 1
-                ;;
+                /System/* | /usr/bin/* | /usr/lib/* | /bin/* | /sbin/* | /private/etc/*)
+                    log_error "Symlink points to protected system path: $path -> $resolved_target"
+                    return 1
+                    ;;
             esac
         fi
     fi
@@ -88,48 +88,48 @@ validate_path_for_deletion() {
 
     # Allow deletion of coresymbolicationd cache (safe system cache that can be rebuilt)
     case "$path" in
-    /System/Library/Caches/com.apple.coresymbolicationd/data | /System/Library/Caches/com.apple.coresymbolicationd/data/*)
-        return 0
-        ;;
+        /System/Library/Caches/com.apple.coresymbolicationd/data | /System/Library/Caches/com.apple.coresymbolicationd/data/*)
+            return 0
+            ;;
     esac
 
     # Allow known safe paths under /private
     case "$path" in
-    /private/tmp | /private/tmp/* | \
-        /private/var/tmp | /private/var/tmp/* | \
-        /private/var/log | /private/var/log/* | \
-        /private/var/folders | /private/var/folders/* | \
-        /private/var/db/diagnostics | /private/var/db/diagnostics/* | \
-        /private/var/db/DiagnosticPipeline | /private/var/db/DiagnosticPipeline/* | \
-        /private/var/db/powerlog | /private/var/db/powerlog/* | \
-        /private/var/db/reportmemoryexception | /private/var/db/reportmemoryexception/* | \
-        /private/var/db/receipts/*.bom | /private/var/db/receipts/*.plist)
-        return 0
-        ;;
+        /private/tmp | /private/tmp/* | \
+            /private/var/tmp | /private/var/tmp/* | \
+            /private/var/log | /private/var/log/* | \
+            /private/var/folders | /private/var/folders/* | \
+            /private/var/db/diagnostics | /private/var/db/diagnostics/* | \
+            /private/var/db/DiagnosticPipeline | /private/var/db/DiagnosticPipeline/* | \
+            /private/var/db/powerlog | /private/var/db/powerlog/* | \
+            /private/var/db/reportmemoryexception | /private/var/db/reportmemoryexception/* | \
+            /private/var/db/receipts/*.bom | /private/var/db/receipts/*.plist)
+            return 0
+            ;;
     esac
 
     # Check path isn't critical system directory
     case "$path" in
-    / | /bin | /bin/* | /sbin | /sbin/* | /usr | /usr/bin | /usr/bin/* | /usr/sbin | /usr/sbin/* | /usr/lib | /usr/lib/* | /System | /System/* | /Library/Extensions)
-        log_error "Path validation failed: critical system directory: $path"
-        return 1
-        ;;
-    /private)
-        log_error "Path validation failed: critical system directory: $path"
-        return 1
-        ;;
-    /etc | /etc/* | /private/etc | /private/etc/*)
-        log_error "Path validation failed: /etc contains critical system files: $path"
-        return 1
-        ;;
-    /var | /var/db | /var/db/* | /private/var | /private/var/db | /private/var/db/*)
-        log_error "Path validation failed: /var/db contains system databases: $path"
-        return 1
-        ;;
+        / | /bin | /bin/* | /sbin | /sbin/* | /usr | /usr/bin | /usr/bin/* | /usr/sbin | /usr/sbin/* | /usr/lib | /usr/lib/* | /System | /System/* | /Library/Extensions)
+            log_error "Path validation failed: critical system directory: $path"
+            return 1
+            ;;
+        /private)
+            log_error "Path validation failed: critical system directory: $path"
+            return 1
+            ;;
+        /etc | /etc/* | /private/etc | /private/etc/*)
+            log_error "Path validation failed: /etc contains critical system files: $path"
+            return 1
+            ;;
+        /var | /var/db | /var/db/* | /private/var | /private/var/db | /private/var/db/*)
+            log_error "Path validation failed: /var/db contains system databases: $path"
+            return 1
+            ;;
     esac
 
     # Check if path is protected (keychains, system settings, etc)
-    if declare -f should_protect_path >/dev/null 2>&1; then
+    if declare -f should_protect_path > /dev/null 2>&1; then
         if should_protect_path "$path"; then
             if [[ "${MO_DEBUG:-0}" == "1" ]]; then
                 log_warning "Path validation: protected path skipped: $path"
@@ -172,16 +172,16 @@ safe_remove() {
 
             if [[ -e "$path" ]]; then
                 local size_kb
-                size_kb=$(get_path_size_kb "$path" 2>/dev/null || echo "0")
+                size_kb=$(get_path_size_kb "$path" 2> /dev/null || echo "0")
                 if [[ "$size_kb" -gt 0 ]]; then
                     file_size=$(bytes_to_human "$((size_kb * 1024))")
                 fi
 
                 if [[ -f "$path" || -d "$path" ]] && ! [[ -L "$path" ]]; then
                     local mod_time
-                    mod_time=$(stat -f%m "$path" 2>/dev/null || echo "0")
+                    mod_time=$(stat -f%m "$path" 2> /dev/null || echo "0")
                     local now
-                    now=$(date +%s 2>/dev/null || echo "0")
+                    now=$(date +%s 2> /dev/null || echo "0")
                     if [[ "$mod_time" -gt 0 && "$now" -gt 0 ]]; then
                         file_age=$(((now - mod_time) / 86400))
                     fi
@@ -202,9 +202,9 @@ safe_remove() {
     local size_human=""
     if oplog_enabled; then
         if [[ -e "$path" ]]; then
-            size_kb=$(get_path_size_kb "$path" 2>/dev/null || echo "0")
+            size_kb=$(get_path_size_kb "$path" 2> /dev/null || echo "0")
             if [[ "$size_kb" =~ ^[0-9]+$ ]] && [[ "$size_kb" -gt 0 ]]; then
-                size_human=$(bytes_to_human "$((size_kb * 1024))" 2>/dev/null || echo "${size_kb}KB")
+                size_human=$(bytes_to_human "$((size_kb * 1024))" 2> /dev/null || echo "${size_kb}KB")
             fi
         fi
     fi
@@ -265,18 +265,18 @@ safe_sudo_remove() {
             local file_size=""
             local file_age=""
 
-            if sudo test -e "$path" 2>/dev/null; then
+            if sudo test -e "$path" 2> /dev/null; then
                 local size_kb
-                size_kb=$(sudo du -sk "$path" 2>/dev/null | awk '{print $1}' || echo "0")
+                size_kb=$(sudo du -sk "$path" 2> /dev/null | awk '{print $1}' || echo "0")
                 if [[ "$size_kb" -gt 0 ]]; then
                     file_size=$(bytes_to_human "$((size_kb * 1024))")
                 fi
 
-                if sudo test -f "$path" 2>/dev/null || sudo test -d "$path" 2>/dev/null; then
+                if sudo test -f "$path" 2> /dev/null || sudo test -d "$path" 2> /dev/null; then
                     local mod_time
-                    mod_time=$(sudo stat -f%m "$path" 2>/dev/null || echo "0")
+                    mod_time=$(sudo stat -f%m "$path" 2> /dev/null || echo "0")
                     local now
-                    now=$(date +%s 2>/dev/null || echo "0")
+                    now=$(date +%s 2> /dev/null || echo "0")
                     if [[ "$mod_time" -gt 0 && "$now" -gt 0 ]]; then
                         file_age=$(((now - mod_time) / 86400))
                     fi
@@ -296,16 +296,16 @@ safe_sudo_remove() {
     local size_kb=0
     local size_human=""
     if oplog_enabled; then
-        if sudo test -e "$path" 2>/dev/null; then
-            size_kb=$(sudo du -sk "$path" 2>/dev/null | awk '{print $1}' || echo "0")
+        if sudo test -e "$path" 2> /dev/null; then
+            size_kb=$(sudo du -sk "$path" 2> /dev/null | awk '{print $1}' || echo "0")
             if [[ "$size_kb" =~ ^[0-9]+$ ]] && [[ "$size_kb" -gt 0 ]]; then
-                size_human=$(bytes_to_human "$((size_kb * 1024))" 2>/dev/null || echo "${size_kb}KB")
+                size_human=$(bytes_to_human "$((size_kb * 1024))" 2> /dev/null || echo "${size_kb}KB")
             fi
         fi
     fi
 
     # Perform the deletion
-    if sudo rm -rf "$path" 2>/dev/null; then # SAFE: safe_sudo_remove implementation
+    if sudo rm -rf "$path" 2> /dev/null; then # SAFE: safe_sudo_remove implementation
         log_operation "${MOLE_CURRENT_COMMAND:-clean}" "REMOVED" "$path" "$size_human"
         return 0
     else
@@ -356,7 +356,7 @@ safe_find_delete() {
             continue
         fi
         safe_remove "$match" true || true
-    done < <(command find "$base_dir" "${find_args[@]}" -print0 2>/dev/null || true)
+    done < <(command find "$base_dir" "${find_args[@]}" -print0 2> /dev/null || true)
 
     return 0
 }
@@ -369,12 +369,12 @@ safe_sudo_find_delete() {
     local type_filter="${4:-f}"
 
     # Validate base directory (use sudo for permission-restricted dirs)
-    if ! sudo test -d "$base_dir" 2>/dev/null; then
+    if ! sudo test -d "$base_dir" 2> /dev/null; then
         debug_log "Directory does not exist, skipping: $base_dir"
         return 0
     fi
 
-    if sudo test -L "$base_dir" 2>/dev/null; then
+    if sudo test -L "$base_dir" 2> /dev/null; then
         log_error "Refusing to search symlinked directory: $base_dir"
         return 1
     fi
@@ -398,7 +398,7 @@ safe_sudo_find_delete() {
             continue
         fi
         safe_sudo_remove "$match" || true
-    done < <(sudo find "$base_dir" "${find_args[@]}" -print0 2>/dev/null || true)
+    done < <(sudo find "$base_dir" "${find_args[@]}" -print0 2> /dev/null || true)
 
     return 0
 }
@@ -418,7 +418,7 @@ get_path_size_kb() {
     # Use || echo 0 to ensure failure in du (e.g. permission error) doesn't exit script under set -e
     # Pipefail would normally cause the pipeline to fail if du fails, but || handle catches it.
     local size
-    size=$(command du -sk "$path" 2>/dev/null | awk 'NR==1 {print $1; exit}' || true)
+    size=$(command du -sk "$path" 2> /dev/null | awk 'NR==1 {print $1; exit}' || true)
 
     # Ensure size is a valid number (fix for non-numeric du output)
     if [[ "$size" =~ ^[0-9]+$ ]]; then
@@ -439,7 +439,7 @@ calculate_total_size() {
             size_kb=$(get_path_size_kb "$file")
             ((total_kb += size_kb))
         fi
-    done <<<"$files"
+    done <<< "$files"
 
     echo "$total_kb"
 }

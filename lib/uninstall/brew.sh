@@ -184,13 +184,13 @@ brew_uninstall_cask() {
     local brew_exit=0
 
     # Calculate timeout based on app size (large apps need more time)
-    local timeout=300  # Default 5 minutes
+    local timeout=300 # Default 5 minutes
     if [[ -n "$app_path" && -d "$app_path" ]]; then
         local size_gb=$(($(get_path_size_kb "$app_path") / 1048576))
         if [[ $size_gb -gt 15 ]]; then
-            timeout=900  # 15 minutes for very large apps (Xcode, Adobe, etc.)
+            timeout=900 # 15 minutes for very large apps (Xcode, Adobe, etc.)
         elif [[ $size_gb -gt 5 ]]; then
-            timeout=600  # 10 minutes for large apps
+            timeout=600 # 10 minutes for large apps
         fi
         debug_log "App size: ${size_gb}GB, timeout: ${timeout}s"
     fi

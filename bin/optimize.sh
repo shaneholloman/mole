@@ -139,12 +139,12 @@ show_optimization_summary() {
 show_system_health() {
     local health_json="$1"
 
-    local mem_used=$(echo "$health_json" | jq -r '.memory_used_gb // 0' 2>/dev/null || echo "0")
-    local mem_total=$(echo "$health_json" | jq -r '.memory_total_gb // 0' 2>/dev/null || echo "0")
-    local disk_used=$(echo "$health_json" | jq -r '.disk_used_gb // 0' 2>/dev/null || echo "0")
-    local disk_total=$(echo "$health_json" | jq -r '.disk_total_gb // 0' 2>/dev/null || echo "0")
-    local disk_percent=$(echo "$health_json" | jq -r '.disk_used_percent // 0' 2>/dev/null || echo "0")
-    local uptime=$(echo "$health_json" | jq -r '.uptime_days // 0' 2>/dev/null || echo "0")
+    local mem_used=$(echo "$health_json" | jq -r '.memory_used_gb // 0' 2> /dev/null || echo "0")
+    local mem_total=$(echo "$health_json" | jq -r '.memory_total_gb // 0' 2> /dev/null || echo "0")
+    local disk_used=$(echo "$health_json" | jq -r '.disk_used_gb // 0' 2> /dev/null || echo "0")
+    local disk_total=$(echo "$health_json" | jq -r '.disk_total_gb // 0' 2> /dev/null || echo "0")
+    local disk_percent=$(echo "$health_json" | jq -r '.disk_used_percent // 0' 2> /dev/null || echo "0")
+    local uptime=$(echo "$health_json" | jq -r '.uptime_days // 0' 2> /dev/null || echo "0")
 
     mem_used=${mem_used:-0}
     mem_total=${mem_total:-0}
@@ -159,7 +159,7 @@ show_system_health() {
 
 parse_optimizations() {
     local health_json="$1"
-    echo "$health_json" | jq -c '.optimizations[]' 2>/dev/null
+    echo "$health_json" | jq -c '.optimizations[]' 2> /dev/null
 }
 
 announce_action() {
@@ -177,12 +177,12 @@ announce_action() {
 
 touchid_configured() {
     local pam_file="/etc/pam.d/sudo"
-    [[ -f "$pam_file" ]] && grep -q "pam_tid.so" "$pam_file" 2>/dev/null
+    [[ -f "$pam_file" ]] && grep -q "pam_tid.so" "$pam_file" 2> /dev/null
 }
 
 touchid_supported() {
-    if command -v bioutil >/dev/null 2>&1; then
-        if bioutil -r 2>/dev/null | grep -qi "Touch ID"; then
+    if command -v bioutil > /dev/null 2>&1; then
+        if bioutil -r 2> /dev/null | grep -qi "Touch ID"; then
             return 0
         fi
     fi
@@ -272,7 +272,7 @@ ask_for_security_fixes() {
     echo ""
     echo -e "${BLUE}SECURITY FIXES${NC}"
     for entry in "${SECURITY_FIXES[@]}"; do
-        IFS='|' read -r _ label <<<"$entry"
+        IFS='|' read -r _ label <<< "$entry"
         echo -e "  ${ICON_LIST} $label"
     done
     echo ""
@@ -299,7 +299,7 @@ ask_for_security_fixes() {
 }
 
 apply_firewall_fix() {
-    if sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate on >/dev/null 2>&1; then
+    if sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate on > /dev/null 2>&1; then
         echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Firewall enabled"
         FIREWALL_DISABLED=false
         return 0
@@ -309,7 +309,7 @@ apply_firewall_fix() {
 }
 
 apply_gatekeeper_fix() {
-    if sudo spctl --master-enable 2>/dev/null; then
+    if sudo spctl --master-enable 2> /dev/null; then
         echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Gatekeeper enabled"
         GATEKEEPER_DISABLED=false
         return 0
@@ -333,17 +333,17 @@ perform_security_fixes() {
 
     local applied=0
     for entry in "${SECURITY_FIXES[@]}"; do
-        IFS='|' read -r action _ <<<"$entry"
+        IFS='|' read -r action _ <<< "$entry"
         case "$action" in
-        firewall)
-            apply_firewall_fix && ((applied++))
-            ;;
-        gatekeeper)
-            apply_gatekeeper_fix && ((applied++))
-            ;;
-        touchid)
-            apply_touchid_fix && ((applied++))
-            ;;
+            firewall)
+                apply_firewall_fix && ((applied++))
+                ;;
+            gatekeeper)
+                apply_gatekeeper_fix && ((applied++))
+                ;;
+            touchid)
+                apply_touchid_fix && ((applied++))
+                ;;
         esac
     done
 
@@ -354,7 +354,7 @@ perform_security_fixes() {
 }
 
 cleanup_all() {
-    stop_inline_spinner 2>/dev/null || true
+    stop_inline_spinner 2> /dev/null || true
     stop_sudo_session
     cleanup_temp_files
     # Log session end
@@ -373,16 +373,16 @@ main() {
     local health_json
     for arg in "$@"; do
         case "$arg" in
-        "--debug")
-            export MO_DEBUG=1
-            ;;
-        "--dry-run")
-            export MOLE_DRY_RUN=1
-            ;;
-        "--whitelist")
-            manage_whitelist "optimize"
-            exit 0
-            ;;
+            "--debug")
+                export MO_DEBUG=1
+                ;;
+            "--dry-run")
+                export MOLE_DRY_RUN=1
+                ;;
+            "--whitelist")
+                manage_whitelist "optimize"
+                exit 0
+                ;;
         esac
     done
 
@@ -401,13 +401,13 @@ main() {
         echo -e "${YELLOW}${ICON_DRY_RUN} DRY RUN MODE${NC}, No files will be modified\n"
     fi
 
-    if ! command -v jq >/dev/null 2>&1; then
+    if ! command -v jq > /dev/null 2>&1; then
         echo -e "${YELLOW}${ICON_ERROR}${NC} Missing dependency: jq"
         echo -e "${GRAY}Install with: ${GREEN}brew install jq${NC}"
         exit 1
     fi
 
-    if ! command -v bc >/dev/null 2>&1; then
+    if ! command -v bc > /dev/null 2>&1; then
         echo -e "${YELLOW}${ICON_ERROR}${NC} Missing dependency: bc"
         echo -e "${GRAY}Install with: ${GREEN}brew install bc${NC}"
         exit 1
@@ -417,7 +417,7 @@ main() {
         start_inline_spinner "Collecting system info..."
     fi
 
-    if ! health_json=$(generate_health_json 2>/dev/null); then
+    if ! health_json=$(generate_health_json 2> /dev/null); then
         if [[ -t 1 ]]; then
             stop_inline_spinner
         fi
@@ -426,7 +426,7 @@ main() {
         exit 1
     fi
 
-    if ! echo "$health_json" | jq empty 2>/dev/null; then
+    if ! echo "$health_json" | jq empty 2> /dev/null; then
         if [[ -t 1 ]]; then
             stop_inline_spinner
         fi
@@ -458,7 +458,7 @@ main() {
     local -a confirm_items=()
     local opts_file
     opts_file=$(mktemp_file)
-    parse_optimizations "$health_json" >"$opts_file"
+    parse_optimizations "$health_json" > "$opts_file"
 
     while IFS= read -r opt_json; do
         [[ -z "$opt_json" ]] && continue
@@ -476,7 +476,7 @@ main() {
         else
             confirm_items+=("$item")
         fi
-    done <"$opts_file"
+    done < "$opts_file"
 
     echo ""
     if [[ "${MOLE_DRY_RUN:-0}" != "1" ]]; then
@@ -486,7 +486,7 @@ main() {
     export FIRST_ACTION=true
     if [[ ${#safe_items[@]} -gt 0 ]]; then
         for item in "${safe_items[@]}"; do
-            IFS='|' read -r name desc action path <<<"$item"
+            IFS='|' read -r name desc action path <<< "$item"
             announce_action "$name" "$desc" "safe"
             execute_optimization "$action" "$path"
         done
@@ -494,7 +494,7 @@ main() {
 
     if [[ ${#confirm_items[@]} -gt 0 ]]; then
         for item in "${confirm_items[@]}"; do
-            IFS='|' read -r name desc action path <<<"$item"
+            IFS='|' read -r name desc action path <<< "$item"
             announce_action "$name" "$desc" "confirm"
             execute_optimization "$action" "$path"
         done
