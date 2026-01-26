@@ -12,7 +12,7 @@ clean_user_essentials() {
         local trash_count
         trash_count=$(osascript -e 'tell application "Finder" to count items in trash' 2> /dev/null || echo "0")
         [[ "$trash_count" =~ ^[0-9]+$ ]] || trash_count="0"
-        
+
         if [[ "$DRY_RUN" == "true" ]]; then
             [[ $trash_count -gt 0 ]] && echo -e "  ${YELLOW}${ICON_DRY_RUN}${NC} Trash · would empty ($trash_count items)" || echo -e "  ${GRAY}${ICON_EMPTY}${NC} Trash · already empty"
         elif [[ $trash_count -gt 0 ]]; then
