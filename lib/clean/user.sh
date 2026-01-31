@@ -457,15 +457,18 @@ process_container_cache() {
         found_any=true
         ((cleaned_count++))
         if [[ "$DRY_RUN" != "true" ]]; then
-            # Clean contents safely with local nullglob.
-            local _ng_state
-            _ng_state=$(shopt -p nullglob || true)
-            shopt -s nullglob
-            for item in "$cache_dir"/*; do
-                [[ -e "$item" ]] || continue
-                safe_remove "$item" true || true
-            done
-            eval "$_ng_state"
+            # For directories with many files, use find -delete for performance
+            if ! find "$cache_dir" -mindepth 1 -delete 2> /dev/null; then
+                # Fallback: try item-by-item if find fails
+                local _ng_state
+                _ng_state=$(shopt -p nullglob || true)
+                shopt -s nullglob
+                for item in "$cache_dir"/*; do
+                    [[ -e "$item" ]] || continue
+                    safe_remove "$item" true || true
+                done
+                eval "$_ng_state"
+            fi
         fi
     fi
 }
@@ -604,10 +607,15 @@ clean_application_support_logs() {
                     ((cleaned_count++))
                     found_any=true
                     if [[ "$DRY_RUN" != "true" ]]; then
-                        for item in "$candidate"/*; do
-                            [[ -e "$item" ]] || continue
-                            safe_remove "$item" true > /dev/null 2>&1 || true
-                        done
+                        # For directories with many files, use find -delete for performance
+                        # This avoids shell expansion and individual safe_remove calls
+                        if ! find "$candidate" -mindepth 1 -delete 2> /dev/null; then
+                            # Fallback: try item-by-item if find fails
+                            for item in "$candidate"/*; do
+                                [[ -e "$item" ]] || continue
+                                safe_remove "$item" true > /dev/null 2>&1 || true
+                            done
+                        fi
                     fi
                 fi
             fi
