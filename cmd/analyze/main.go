@@ -5,13 +5,11 @@ package main
 import (
 	"context"
 	"fmt"
-	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"slices"
 	"sort"
-	"strings"
 	"sync/atomic"
 	"time"
 
@@ -234,32 +232,6 @@ func createOverviewEntries() []dirEntry {
 	)
 
 	return entries
-}
-
-func hasUsefulVolumeMounts(path string) bool {
-	entries, err := os.ReadDir(path)
-	if err != nil {
-		return false
-	}
-
-	for _, entry := range entries {
-		name := entry.Name()
-		if strings.HasPrefix(name, ".") {
-			continue
-		}
-
-		info, err := os.Lstat(filepath.Join(path, name))
-		if err != nil {
-			continue
-		}
-		if info.Mode()&fs.ModeSymlink != 0 {
-			continue // Ignore the synthetic MacintoshHD link
-		}
-		if info.IsDir() {
-			return true
-		}
-	}
-	return false
 }
 
 func (m *model) hydrateOverviewEntries() {

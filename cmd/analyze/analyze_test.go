@@ -329,29 +329,6 @@ func TestIsCleanableDir(t *testing.T) {
 	}
 }
 
-func TestHasUsefulVolumeMounts(t *testing.T) {
-	root := t.TempDir()
-	if hasUsefulVolumeMounts(root) {
-		t.Fatalf("empty directory should not report useful mounts")
-	}
-
-	hidden := filepath.Join(root, ".hidden")
-	if err := os.Mkdir(hidden, 0o755); err != nil {
-		t.Fatalf("create hidden dir: %v", err)
-	}
-	if hasUsefulVolumeMounts(root) {
-		t.Fatalf("hidden entries should not count as useful mounts")
-	}
-
-	mount := filepath.Join(root, "ExternalDrive")
-	if err := os.Mkdir(mount, 0o755); err != nil {
-		t.Fatalf("create mount dir: %v", err)
-	}
-	if !hasUsefulVolumeMounts(root) {
-		t.Fatalf("expected useful mount when real directory exists")
-	}
-}
-
 func TestLoadCacheExpiresWhenDirectoryChanges(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
