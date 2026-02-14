@@ -181,7 +181,7 @@ APPLESCRIPT
             ;;
         Ghostty)
             if launcher_available "Ghostty" && command -v open >/dev/null 2>&1; then
-                open -na "Ghostty" --args -e /bin/zsh -lc "\${MO_BIN} \${MO_SUBCOMMAND}"
+                open -na "Ghostty" --args -e /bin/zsh -lc "\"\${MO_BIN}\" \${MO_SUBCOMMAND}; exec /bin/zsh -l"
                 return \$?
             fi
             ;;
