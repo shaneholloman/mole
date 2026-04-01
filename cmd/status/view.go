@@ -177,7 +177,16 @@ func renderHeader(m MetricsSnapshot, errMsg string, animFrame int, termWidth int
 		optionalInfoParts = append(optionalInfoParts, m.Hardware.OSVersion)
 	}
 	if !compactHeader && m.Uptime != "" {
-		optionalInfoParts = append(optionalInfoParts, subtleStyle.Render("up "+m.Uptime))
+		uptimeText := "up " + m.Uptime
+		switch uptimeSeverity(m.UptimeSeconds) {
+		case "danger":
+			uptimeText = dangerStyle.Render(uptimeText + " ↻")
+		case "warn":
+			uptimeText = warnStyle.Render(uptimeText)
+		default:
+			uptimeText = subtleStyle.Render(uptimeText)
+		}
+		optionalInfoParts = append(optionalInfoParts, uptimeText)
 	}
 
 	headLeft := title + "  " + scoreText
@@ -641,15 +650,34 @@ func renderBatteryCard(batts []BatteryStatus, thermal ThermalStatus) cardData {
 		lines = append(lines, statusStyle.Render(statusText+statusIcon))
 
 		healthParts := []string{}
-		if b.Health != "" {
+
+		// Battery health assessment label.
+		if b.CycleCount > 0 || b.Capacity > 0 {
+			label, severity := batteryHealthLabel(b.CycleCount, b.Capacity)
+			switch severity {
+			case "danger":
+				healthParts = append(healthParts, dangerStyle.Render(label))
+			case "warn":
+				healthParts = append(healthParts, warnStyle.Render(label))
+			default:
+				healthParts = append(healthParts, okStyle.Render(label))
+			}
+		} else if b.Health != "" {
 			healthParts = append(healthParts, b.Health)
 		}
+
 		if b.CycleCount > 0 {
-			healthParts = append(healthParts, fmt.Sprintf("%d cycles", b.CycleCount))
+			cycleText := fmt.Sprintf("%d cycles", b.CycleCount)
+			if b.CycleCount > batteryCycleDanger {
+				cycleText = dangerStyle.Render(cycleText)
+			} else if b.CycleCount > batteryCycleWarn {
+				cycleText = warnStyle.Render(cycleText)
+			}
+			healthParts = append(healthParts, cycleText)
 		}
 
 		if thermal.CPUTemp > 0 {
-			tempText := colorizeTemp(thermal.CPUTemp) + "°C" // Reuse common color logic
+			tempText := colorizeTemp(thermal.CPUTemp) + "°C"
 			healthParts = append(healthParts, tempText)
 		}
 

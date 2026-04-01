@@ -61,6 +61,7 @@ type MetricsSnapshot struct {
 	Host           string       `json:"host"`
 	Platform       string       `json:"platform"`
 	Uptime         string       `json:"uptime"`
+	UptimeSeconds  uint64       `json:"uptime_seconds"`
 	Procs          uint64       `json:"procs"`
 	Hardware       HardwareInfo `json:"hardware"`
 	HealthScore    int          `json:"health_score"`     // 0-100 system health score
@@ -328,7 +329,7 @@ func (c *Collector) Collect() (MetricsSnapshot, error) {
 	}
 	hwInfo := c.cachedHW
 
-	score, scoreMsg := calculateHealthScore(cpuStats, memStats, diskStats, diskIO, thermalStats)
+	score, scoreMsg := calculateHealthScore(cpuStats, memStats, diskStats, diskIO, thermalStats, batteryStats, hostInfo.Uptime)
 	topProcs := topProcesses(allProcs, 5)
 
 	var processAlerts []ProcessAlert
@@ -343,6 +344,7 @@ func (c *Collector) Collect() (MetricsSnapshot, error) {
 		Host:           hostInfo.Hostname,
 		Platform:       fmt.Sprintf("%s %s", hostInfo.Platform, hostInfo.PlatformVersion),
 		Uptime:         formatUptime(hostInfo.Uptime),
+		UptimeSeconds:  hostInfo.Uptime,
 		Procs:          hostInfo.Procs,
 		Hardware:       hwInfo,
 		HealthScore:    score,
