@@ -490,7 +490,7 @@ EOF
 	mkdir -p "$HOME/.local/bin"
 	touch "$HOME/.local/bin/mole"
 	touch "$HOME/.local/bin/mo"
-	mkdir -p "$HOME/.config/mole" "$HOME/.cache/mole"
+	mkdir -p "$HOME/.config/mole" "$HOME/.cache/mole" "$HOME/Library/Logs/mole"
 
 	run env HOME="$HOME" PROJECT_ROOT="$PROJECT_ROOT" PATH="/usr/bin:/bin" MOLE_TEST_MODE=1 bash --noprofile --norc <<'EOF'
 set -euo pipefail
@@ -532,13 +532,14 @@ EOF
 	[ ! -f "$HOME/.local/bin/mo" ]
 	[ ! -d "$HOME/.config/mole" ]
 	[ ! -d "$HOME/.cache/mole" ]
+	[ ! -d "$HOME/Library/Logs/mole" ]
 }
 
 @test "remove_mole dry-run keeps manual binaries and caches" {
 	mkdir -p "$HOME/.local/bin"
 	touch "$HOME/.local/bin/mole"
 	touch "$HOME/.local/bin/mo"
-	mkdir -p "$HOME/.config/mole" "$HOME/.cache/mole"
+	mkdir -p "$HOME/.config/mole" "$HOME/.cache/mole" "$HOME/Library/Logs/mole"
 
 	run env HOME="$HOME" PROJECT_ROOT="$PROJECT_ROOT" PATH="/usr/bin:/bin" MOLE_TEST_MODE=1 bash --noprofile --norc <<'EOF'
 set -euo pipefail
@@ -554,10 +555,11 @@ EOF
 	[ -f "$HOME/.local/bin/mo" ]
 	[ -d "$HOME/.config/mole" ]
 	[ -d "$HOME/.cache/mole" ]
+	[ -d "$HOME/Library/Logs/mole" ]
 }
 
 @test "remove_mole test mode ignores PATH installs outside test HOME" {
-	mkdir -p "$HOME/.local/bin" "$HOME/.config/mole" "$HOME/.cache/mole"
+	mkdir -p "$HOME/.local/bin" "$HOME/.config/mole" "$HOME/.cache/mole" "$HOME/Library/Logs/mole"
 	touch "$HOME/.local/bin/mole"
 	touch "$HOME/.local/bin/mo"
 

@@ -647,6 +647,7 @@ remove_mole() {
         fi
         [[ -d "$HOME/.cache/mole" ]] && echo -e "  ${GRAY}${ICON_LIST} Would remove: $HOME/.cache/mole${NC}"
         [[ -d "$HOME/.config/mole" ]] && echo -e "  ${GRAY}${ICON_LIST} Would remove: $HOME/.config/mole${NC}"
+        [[ -d "$HOME/Library/Logs/mole" ]] && echo -e "  ${GRAY}${ICON_LIST} Would remove: $HOME/Library/Logs/mole${NC}"
 
         printf '\n%s\n\n' "${GREEN}${ICON_SUCCESS}${NC} Dry run complete, no changes made"
         exit 0
@@ -661,6 +662,7 @@ remove_mole() {
     done
     echo "  ${ICON_LIST} ~/.config/mole"
     echo "  ${ICON_LIST} ~/.cache/mole"
+    echo "  ${ICON_LIST} ~/Library/Logs/mole"
     echo -ne "${PURPLE}${ICON_ARROW}${NC} Press ${GREEN}Enter${NC} to confirm, ${GRAY}ESC${NC} to cancel: "
 
     IFS= read -r -s -n1 key || key=""
@@ -732,6 +734,9 @@ remove_mole() {
     fi
     if [[ -d "$HOME/.config/mole" ]]; then
         rm -rf "$HOME/.config/mole" 2> /dev/null || true
+    fi
+    if [[ -d "$HOME/Library/Logs/mole" ]]; then
+        rm -rf "$HOME/Library/Logs/mole" 2> /dev/null || true
     fi
 
     local final_message
