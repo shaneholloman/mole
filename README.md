@@ -353,12 +353,7 @@ Real feedback from users who shared Mole on X.
 - Got ideas or bugs? Read the [Contributing Guide](CONTRIBUTING.md) and open an issue or PR.
 - Like Mole? <a href="https://miaoyan.app/cats.html?name=Mole" target="_blank">Buy Tw93 a Coke</a> to support the project.
 
-<details>
-<summary>🥤 Supporters</summary>
-
 <a href="https://miaoyan.app/cats.html?name=Mole"><img src="https://rawcdn.githack.com/tw93/MiaoYan/vercel/assets/sponsors.svg" width="1000" loading="lazy" /></a>
-
-</details>
 
 ## License
 
