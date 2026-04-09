@@ -354,6 +354,7 @@ EOF
 import sys, json
 data = json.load(sys.stdin)
 assert 'path' in data, 'missing path'
+assert 'overview' in data, 'missing overview'
 assert 'entries' in data, 'missing entries'
 assert 'total_size' in data, 'missing total_size'
 assert 'total_files' in data, 'missing total_files'
@@ -372,6 +373,7 @@ assert isinstance(data['entries'], list), 'entries is not a list'
 	echo "$output" | python3 -c "
 import sys, json
 data = json.load(sys.stdin)
+assert data['overview'] is False, 'explicit path should not be overview mode'
 for entry in data['entries']:
     assert 'name' in entry, 'entry missing name'
     assert 'path' in entry, 'entry missing path'
@@ -393,6 +395,26 @@ import sys, json
 data = json.load(sys.stdin)
 assert data['path'] == '/tmp' or data['path'] == '/private/tmp', \
     f\"unexpected path: {data['path']}\"
+"
+}
+
+@test "mo analyze --json overview mode returns expected schema" {
+	if [[ ! -x "${ANALYZE_BIN:-}" ]]; then
+		skip "analyze binary not available (go not installed?)"
+	fi
+
+	run "$ANALYZE_BIN" --json
+	[ "$status" -eq 0 ]
+
+	echo "$output" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+assert 'path' in data, 'missing path'
+assert 'overview' in data, 'missing overview'
+assert data['overview'] is True, 'overview scan should have overview: true'
+assert 'entries' in data, 'missing entries'
+assert 'total_size' in data, 'missing total_size'
+assert isinstance(data['entries'], list), 'entries is not a list'
 "
 }
 

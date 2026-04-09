@@ -226,9 +226,13 @@ Both `mo analyze` and `mo status` support a `--json` flag for scripting and auto
 $ mo analyze --json ~/Documents
 {
   "path": "/Users/you/Documents",
+  "overview": false,
   "entries": [
     { "name": "Library", "path": "...", "size": 80939438080, "is_dir": true },
     ...
+  ],
+  "large_files": [
+    { "name": "backup.zip", "path": "...", "size": 8796093022 }
   ],
   "total_size": 168393441280,
   "total_files": 42187
