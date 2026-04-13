@@ -752,6 +752,7 @@ select_purge_categories() {
         printf "%s\n" "$clear_line"
 
         IFS=',' read -r -a recent_flags <<< "${PURGE_RECENT_CATEGORIES:-}"
+        IFS=',' read -r -a age_labels <<< "${PURGE_AGE_LABELS:-}"
 
         # Calculate visible range
         local end_index=$((top_index + visible_count))
@@ -761,7 +762,8 @@ select_purge_categories() {
             local checkbox="$ICON_EMPTY"
             [[ ${selected[i]} == true ]] && checkbox="$ICON_SOLID"
             local recent_marker=""
-            [[ ${recent_flags[i]:-false} == "true" ]] && recent_marker=" ${GRAY}| Recent${NC}"
+            local _age="${age_labels[i]:-}"
+            [[ -n "$_age" ]] && recent_marker=" ${GRAY}| ${_age}${NC}"
             local rel_pos=$((i - top_index))
             if [[ $rel_pos -eq $cursor_pos ]]; then
                 printf "%s${CYAN}${ICON_ARROW} %s %s%s${NC}\n" "$clear_line" "$checkbox" "${categories[i]}" "$recent_marker"
@@ -1111,6 +1113,7 @@ clean_project_artifacts() {
     local -a item_sizes=()
     local -a item_size_unknown_flags=()
     local -a item_recent_flags=()
+    local -a item_age_labels=()
     # Helper to get project name from path
     # For ~/www/pake/src-tauri/target -> returns "pake"
     # For ~/work/code/MyProject/node_modules -> returns "MyProject"
@@ -1417,6 +1420,20 @@ clean_project_artifacts() {
         item_sizes+=("$size_kb")
         item_size_unknown_flags+=("$size_unknown")
         item_recent_flags+=("$is_recent")
+        # Build human-readable age label (bash 3.2 compatible — no assoc arrays).
+        local _mod_time _age_secs _age_d
+        _mod_time=$(get_file_mtime "$item" 2>/dev/null || echo "0")
+        _age_secs=$((_now_epoch - _mod_time))
+        _age_d=$((_age_secs / 86400))
+        if [[ $_age_d -lt 1 ]]; then
+            item_age_labels+=("<1d")
+        elif [[ $_age_d -lt 30 ]]; then
+            item_age_labels+=("${_age_d}d")
+        elif [[ $_age_d -lt 365 ]]; then
+            item_age_labels+=("$((_age_d / 30))mo")
+        else
+            item_age_labels+=("$((_age_d / 365))y")
+        fi
     done
 
     # Pre-scan: find max path and artifact display widths (mirrors app_selector.sh approach)
@@ -1439,7 +1456,7 @@ clean_project_artifacts() {
     [[ $max_artifact_width -lt 6 ]] && max_artifact_width=6
     [[ $max_artifact_width -gt 17 ]] && max_artifact_width=17
 
-    # Exact overhead: prefix(4) + space(1) + size(9) + " | "(3) + artifact_col + " | Recent"(9) = artifact_col + 26
+    # Exact overhead: prefix(4) + space(1) + size(9) + " | "(3) + artifact_col + " | 11mo"(7) = artifact_col + 24
     local fixed_overhead=$((max_artifact_width + 26))
     local available_for_path=$((terminal_width - fixed_overhead))
 
@@ -1494,6 +1511,7 @@ clean_project_artifacts() {
         local -a sorted_item_size_unknown_flags=()
         local -a sorted_item_recent_flags=()
         local -a sorted_item_display_paths=()
+        local -a sorted_item_age_labels=()
 
         for idx in "${sorted_indices[@]}"; do
             sorted_menu_options+=("${menu_options[idx]}")
@@ -1502,6 +1520,7 @@ clean_project_artifacts() {
             sorted_item_size_unknown_flags+=("${item_size_unknown_flags[idx]}")
             sorted_item_recent_flags+=("${item_recent_flags[idx]}")
             sorted_item_display_paths+=("${item_display_paths[idx]}")
+            sorted_item_age_labels+=("${item_age_labels[idx]}")
         done
 
         # Replace original arrays with sorted versions
@@ -1511,6 +1530,7 @@ clean_project_artifacts() {
         item_size_unknown_flags=("${sorted_item_size_unknown_flags[@]}")
         item_recent_flags=("${sorted_item_recent_flags[@]}")
         item_display_paths=("${sorted_item_display_paths[@]}")
+        item_age_labels=("${sorted_item_age_labels[@]}")
     fi
     if [[ -t 1 ]]; then
         stop_inline_spinner
@@ -1532,13 +1552,17 @@ clean_project_artifacts() {
         IFS=,
         echo "${item_recent_flags[*]-}"
     )
+    export PURGE_AGE_LABELS=$(
+        IFS=,
+        echo "${item_age_labels[*]-}"
+    )
     # Interactive selection (only if terminal is available)
     PURGE_SELECTION_RESULT=""
     PURGE_CATEGORY_FULL_PATHS_ARRAY=("${item_display_paths[@]}")
     if [[ -t 0 ]]; then
         if ! select_purge_categories "${menu_options[@]}"; then
             PURGE_CATEGORY_FULL_PATHS_ARRAY=()
-            unset PURGE_CATEGORY_SIZES PURGE_RECENT_CATEGORIES PURGE_SELECTION_RESULT
+            unset PURGE_CATEGORY_SIZES PURGE_RECENT_CATEGORIES PURGE_AGE_LABELS PURGE_SELECTION_RESULT
             return 1
         fi
     else
@@ -1555,7 +1579,7 @@ clean_project_artifacts() {
         echo -e "${GRAY}No items selected${NC}"
         printf '\n'
         PURGE_CATEGORY_FULL_PATHS_ARRAY=()
-        unset PURGE_CATEGORY_SIZES PURGE_RECENT_CATEGORIES PURGE_SELECTION_RESULT
+        unset PURGE_CATEGORY_SIZES PURGE_RECENT_CATEGORIES PURGE_AGE_LABELS PURGE_SELECTION_RESULT
         return 0
     fi
     IFS=',' read -r -a selected_indices <<< "$PURGE_SELECTION_RESULT"
@@ -1577,7 +1601,7 @@ clean_project_artifacts() {
             echo -e "${GRAY}Purge cancelled${NC}"
             printf '\n'
             PURGE_CATEGORY_FULL_PATHS_ARRAY=()
-            unset PURGE_CATEGORY_SIZES PURGE_RECENT_CATEGORIES PURGE_SELECTION_RESULT
+            unset PURGE_CATEGORY_SIZES PURGE_RECENT_CATEGORIES PURGE_AGE_LABELS PURGE_SELECTION_RESULT
             return 1
         fi
     fi
@@ -1632,5 +1656,5 @@ clean_project_artifacts() {
     done
     # Update count
     echo "$cleaned_count" > "$stats_dir/purge_count"
-    unset PURGE_CATEGORY_SIZES PURGE_RECENT_CATEGORIES PURGE_SELECTION_RESULT
+    unset PURGE_CATEGORY_SIZES PURGE_RECENT_CATEGORIES PURGE_AGE_LABELS PURGE_SELECTION_RESULT
 }
