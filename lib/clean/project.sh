@@ -1358,9 +1358,19 @@ clean_project_artifacts() {
         truncated_path=$(compact_purge_menu_path "$project_path" "$available_width")
         local current_width
         current_width=$(get_display_width "$truncated_path")
-        local char_count=${#truncated_path}
+
+        # Get byte count for printf width calculation
+        local old_lc="${LC_ALL:-}"
+        export LC_ALL=C
+        local byte_count=${#truncated_path}
+        if [[ -n "$old_lc" ]]; then
+            export LC_ALL="$old_lc"
+        else
+            unset LC_ALL
+        fi
+
         local padding=$((available_width - current_width))
-        local printf_width=$((char_count + padding))
+        local printf_width=$((byte_count + padding))
         # Format: "project_path  size | artifact_type"
         printf "%-*s %9s | %-*s" "$printf_width" "$truncated_path" "$size_str" "$artifact_col" "$artifact_type"
     }
