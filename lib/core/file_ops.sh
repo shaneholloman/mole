@@ -685,7 +685,7 @@ safe_find_delete() {
             continue
         fi
         safe_remove "$match" true || true
-    done < <(command find "$base_dir" "${find_args[@]}" -print0 2> /dev/null || true)
+    done < <(command find "$base_dir" "${find_args[@]}" -print0 2> /dev/null < /dev/null || true)
 
     return 0
 }

@@ -14,12 +14,16 @@ func collectProcesses() ([]ProcessInfo, error) {
 	if runtime.GOOS != "darwin" {
 		return nil, nil
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
 	out, err := runCmd(ctx, "ps", "-Aceo", "pid=,ppid=,pcpu=,pmem=,comm=", "-r")
 	if err != nil {
-		return nil, err
+		out, err = runCmd(ctx, "ps", "aux")
+		if err != nil {
+			return nil, err
+		}
+		return parsePsAuxOutput(out), nil
 	}
 	return parseProcessOutput(out), nil
 }
@@ -58,6 +62,55 @@ func parseProcessOutput(raw string) []ProcessInfo {
 		procs = append(procs, ProcessInfo{
 			PID:     pid,
 			PPID:    ppid,
+			Name:    name,
+			Command: command,
+			CPU:     cpuVal,
+			Memory:  memVal,
+		})
+	}
+	return procs
+}
+
+// parsePsAuxOutput parses the fallback "ps aux" format.
+// Columns: USER PID %CPU %MEM VSZ RSS TT STAT STARTED TIME COMMAND
+func parsePsAuxOutput(raw string) []ProcessInfo {
+	var procs []ProcessInfo
+	first := true
+	for line := range strings.Lines(strings.TrimSpace(raw)) {
+		if first {
+			first = false
+			continue
+		}
+		fields := strings.Fields(line)
+		if len(fields) < 11 {
+			continue
+		}
+		pid, err := strconv.Atoi(fields[1])
+		if err != nil || pid <= 0 {
+			continue
+		}
+		cpuVal, err := strconv.ParseFloat(fields[2], 64)
+		if err != nil {
+			continue
+		}
+		memVal, err := strconv.ParseFloat(fields[3], 64)
+		if err != nil {
+			continue
+		}
+		command := strings.Join(fields[10:], " ")
+		if command == "" {
+			continue
+		}
+		name := command
+		if idx := strings.LastIndex(name, "/"); idx >= 0 {
+			name = name[idx+1:]
+		}
+		if spIdx := strings.Index(name, " "); spIdx >= 0 {
+			name = name[:spIdx]
+		}
+		procs = append(procs, ProcessInfo{
+			PID:     pid,
+			PPID:    0,
 			Name:    name,
 			Command: command,
 			CPU:     cpuVal,

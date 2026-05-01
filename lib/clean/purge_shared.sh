@@ -54,6 +54,7 @@ readonly MOLE_PURGE_DEFAULT_SEARCH_PATHS=(
     "$HOME/Workspace"
     "$HOME/Repos"
     "$HOME/Development"
+    "$HOME/Library/CloudStorage"
 )
 
 readonly MOLE_PURGE_MONOREPO_INDICATORS=(

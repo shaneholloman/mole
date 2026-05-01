@@ -807,6 +807,23 @@ clean_group_container_caches() {
                 continue
                 ;;
         esac
+
+        # Skip Safari Web Extension containers: cleaning their caches triggers
+        # extension reinitialization and can launch Safari unexpectedly.
+        if [[ -d "$HOME/Library/Containers/$container_id" ]]; then
+            local _ext_match=false
+            local _ext_entry
+            for _ext_entry in "$HOME/Library/Containers/$container_id/"*Safari* \
+                "$HOME/Library/Containers/$container_id/"*safari*; do
+                if [[ -e "$_ext_entry" ]]; then
+                    _ext_match=true
+                    break
+                fi
+            done
+            if [[ "$_ext_match" == "true" ]]; then
+                continue
+            fi
+        fi
         local normalized_id="$container_id"
         [[ "$normalized_id" == group.* ]] && normalized_id="${normalized_id#group.}"
 
