@@ -195,7 +195,7 @@ hint_collect_installed_gui_app_match_texts() {
                 "$(plutil -extract CFBundleDisplayName raw "$info" 2> /dev/null || echo "")"; do
                 [[ -n "$value" && "$value" != "(null)" ]] && printf '%s\n' "$value"
             done
-        done < <(run_with_timeout 2 find "$app_root" -maxdepth 2 -name "*.app" -print0 2> /dev/null || true)
+        done < <(run_with_timeout "$MOLE_TIMEOUT_QUICK_DETECT_SEC" find "$app_root" -maxdepth 2 -name "*.app" -print0 2> /dev/null || true)
     done
 
     local -a cask_roots=(
@@ -210,7 +210,7 @@ hint_collect_installed_gui_app_match_texts() {
             [[ -n "$cask_dir" ]] || continue
             cask_name="${cask_dir##*/}"
             printf '%s\n' "$cask_name"
-        done < <(run_with_timeout 1 find "$cask_root" -mindepth 1 -maxdepth 1 -type d -print0 2> /dev/null || true)
+        done < <(run_with_timeout 1 find "$cask_root" -mindepth 1 -maxdepth 1 -type d -print0 2> /dev/null || true) # 1s: shallow brew cask dir list, see lib/core/timeouts.sh
     done
 }
 
@@ -665,7 +665,7 @@ _dotdir_owner_collect_tokens() {
 
     if command -v brew > /dev/null 2>&1; then
         local cask_list=""
-        cask_list=$(HOMEBREW_NO_ENV_HINTS=1 run_with_timeout 5 brew list --cask 2> /dev/null) || true
+        cask_list=$(HOMEBREW_NO_ENV_HINTS=1 run_with_timeout "$MOLE_TIMEOUT_MEDIUM_PROBE_SEC" brew list --cask 2> /dev/null) || true
         if [[ -n "$cask_list" ]]; then
             printf '%s\n' "$cask_list" | LC_ALL=C tr '[:upper:]' '[:lower:]' | LC_ALL=C tr -cs 'a-z0-9' '\n'
         fi
@@ -833,7 +833,7 @@ show_orphan_dotdir_hint_notice() {
         fi
 
         if [[ -d "$HOME/Library/LaunchAgents" ]]; then
-            if run_with_timeout 2 grep -rlq "$basename" "$HOME/Library/LaunchAgents/" 2> /dev/null; then
+            if run_with_timeout "$MOLE_TIMEOUT_QUICK_DETECT_SEC" grep -rlq "$basename" "$HOME/Library/LaunchAgents/" 2> /dev/null; then
                 continue
             fi
         fi
@@ -855,7 +855,7 @@ show_orphan_dotdir_hint_notice() {
         if [[ ${#labels[@]} -ge $max_hits ]]; then
             break
         fi
-    done < <(run_with_timeout 3 find "$HOME" -maxdepth 1 -mindepth 1 -type d -name '.*' 2> /dev/null | LC_ALL=C sort)
+    done < <(run_with_timeout "$MOLE_TIMEOUT_SHORT_QUERY_SEC" find "$HOME" -maxdepth 1 -mindepth 1 -type d -name '.*' 2> /dev/null | LC_ALL=C sort)
 
     [[ ${#labels[@]} -eq 0 ]] && return 0
 

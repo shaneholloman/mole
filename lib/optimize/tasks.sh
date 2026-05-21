@@ -343,7 +343,7 @@ opt_quarantine_cleanup() {
 
     # Check if database has any entries worth cleaning.
     local row_count
-    row_count=$(run_with_timeout 5 sqlite3 "$quarantine_db" "SELECT COUNT(*) FROM LSQuarantineEvent;" 2> /dev/null || echo "0")
+    row_count=$(run_with_timeout "$MOLE_TIMEOUT_MEDIUM_PROBE_SEC" sqlite3 "$quarantine_db" "SELECT COUNT(*) FROM LSQuarantineEvent;" 2> /dev/null || echo "0")
 
     if [[ ! "$row_count" =~ ^[0-9]+$ ]] || [[ "$row_count" -eq 0 ]]; then
         opt_msg "Quarantine database already clean"
@@ -353,7 +353,7 @@ opt_quarantine_cleanup() {
     if [[ "${MOLE_DRY_RUN:-0}" != "1" ]]; then
         local exit_code=0
         set +e
-        run_with_timeout 10 sqlite3 "$quarantine_db" "DELETE FROM LSQuarantineEvent; VACUUM;" 2> /dev/null
+        run_with_timeout "$MOLE_TIMEOUT_PKG_LIST_SEC" sqlite3 "$quarantine_db" "DELETE FROM LSQuarantineEvent; VACUUM;" 2> /dev/null
         exit_code=$?
         set -e
 
@@ -436,7 +436,7 @@ opt_sqlite_vacuum() {
 
             # Skip if freelist is tiny (already compact).
             local page_info=""
-            page_info=$(run_with_timeout 5 sqlite3 "$db_file" "PRAGMA page_count; PRAGMA freelist_count;" 2> /dev/null || echo "")
+            page_info=$(run_with_timeout "$MOLE_TIMEOUT_MEDIUM_PROBE_SEC" sqlite3 "$db_file" "PRAGMA page_count; PRAGMA freelist_count;" 2> /dev/null || echo "")
             local page_count=""
             local freelist_count=""
             page_count="${page_info%%$'\n'*}"
@@ -455,7 +455,7 @@ opt_sqlite_vacuum() {
             if [[ "${MOLE_DRY_RUN:-0}" != "1" ]]; then
                 local integrity_check=""
                 set +e
-                integrity_check=$(run_with_timeout 10 sqlite3 "$db_file" "PRAGMA integrity_check;" 2> /dev/null)
+                integrity_check=$(run_with_timeout "$MOLE_TIMEOUT_PKG_LIST_SEC" sqlite3 "$db_file" "PRAGMA integrity_check;" 2> /dev/null)
                 local integrity_status=$?
                 set -e
 
@@ -468,7 +468,7 @@ opt_sqlite_vacuum() {
             local exit_code=0
             if [[ "${MOLE_DRY_RUN:-0}" != "1" ]]; then
                 set +e
-                run_with_timeout 20 sqlite3 "$db_file" "VACUUM;" 2> /dev/null
+                run_with_timeout "$MOLE_TIMEOUT_PKG_CLEANUP_SEC" sqlite3 "$db_file" "VACUUM;" 2> /dev/null
                 exit_code=$?
                 set -e
 
@@ -1100,7 +1100,7 @@ opt_disk_verify() {
         MOLE_SPINNER_PREFIX="  " start_inline_spinner "Verifying disk filesystem..."
     fi
     local output
-    output=$(run_with_timeout 30 diskutil verifyVolume / 2>&1 || true)
+    output=$(run_with_timeout "$MOLE_TIMEOUT_DISK_VERIFY_SEC" diskutil verifyVolume / 2>&1 || true)
     if [[ -t 1 ]]; then
         stop_inline_spinner
     fi

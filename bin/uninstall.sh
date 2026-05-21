@@ -38,7 +38,10 @@ readonly MOLE_UNINSTALL_META_REFRESH_TTL=604800 # 7 days
 readonly MOLE_UNINSTALL_SCAN_SPINNER_DELAY_SEC="0.25"
 readonly MOLE_UNINSTALL_INLINE_METADATA_LIMIT="${MOLE_UNINSTALL_INLINE_METADATA_LIMIT:-0}"
 readonly MOLE_UNINSTALL_EPOCH_FLOOR=978307200
-readonly MOLE_UNINSTALL_INLINE_MDLS_TIMEOUT_SEC="0.08"
+readonly MOLE_UNINSTALL_INLINE_MDLS_TIMEOUT_SEC="${MOLE_UNINSTALL_INLINE_MDLS_TIMEOUT_SEC:-0.08}"
+# Display-name lookups are smaller queries than last-used-date, so the budget
+# is half. Both timeouts are overridable for slow disks or cold Spotlight.
+readonly MOLE_UNINSTALL_INLINE_MDLS_DISPLAY_TIMEOUT_SEC="${MOLE_UNINSTALL_INLINE_MDLS_DISPLAY_TIMEOUT_SEC:-0.04}"
 
 uninstall_relative_time_from_epoch() {
     local value_epoch="${1:-0}"
@@ -105,11 +108,11 @@ uninstall_resolve_display_name() {
     if [[ -f "$app_path/Contents/Info.plist" ]]; then
         local md_display_name
         if [[ -n "$MOLE_UNINSTALL_USER_LC_ALL" ]]; then
-            md_display_name=$(run_with_timeout 0.04 env LC_ALL="$MOLE_UNINSTALL_USER_LC_ALL" LANG="$MOLE_UNINSTALL_USER_LANG" mdls -name kMDItemDisplayName -raw "$app_path" 2> /dev/null || echo "")
+            md_display_name=$(run_with_timeout "$MOLE_UNINSTALL_INLINE_MDLS_DISPLAY_TIMEOUT_SEC" env LC_ALL="$MOLE_UNINSTALL_USER_LC_ALL" LANG="$MOLE_UNINSTALL_USER_LANG" mdls -name kMDItemDisplayName -raw "$app_path" 2> /dev/null || echo "")
         elif [[ -n "$MOLE_UNINSTALL_USER_LANG" ]]; then
-            md_display_name=$(run_with_timeout 0.04 env LANG="$MOLE_UNINSTALL_USER_LANG" mdls -name kMDItemDisplayName -raw "$app_path" 2> /dev/null || echo "")
+            md_display_name=$(run_with_timeout "$MOLE_UNINSTALL_INLINE_MDLS_DISPLAY_TIMEOUT_SEC" env LANG="$MOLE_UNINSTALL_USER_LANG" mdls -name kMDItemDisplayName -raw "$app_path" 2> /dev/null || echo "")
         else
-            md_display_name=$(run_with_timeout 0.04 mdls -name kMDItemDisplayName -raw "$app_path" 2> /dev/null || echo "")
+            md_display_name=$(run_with_timeout "$MOLE_UNINSTALL_INLINE_MDLS_DISPLAY_TIMEOUT_SEC" mdls -name kMDItemDisplayName -raw "$app_path" 2> /dev/null || echo "")
         fi
 
         local bundle_display_name
@@ -303,7 +306,7 @@ start_uninstall_metadata_refresh() {
             (
                 local last_used_epoch=0
                 local metadata_date
-                metadata_date=$(run_with_timeout 0.2 mdls -name kMDItemLastUsedDate -raw "$app_path" 2> /dev/null || echo "")
+                metadata_date=$(run_with_timeout 0.2 mdls -name kMDItemLastUsedDate -raw "$app_path" 2> /dev/null || echo "") # 0.2s: per-app probe in tight scan loop, see lib/core/timeouts.sh
                 if [[ "$metadata_date" != "(null)" && -n "$metadata_date" ]]; then
                     last_used_epoch=$(date -j -f "%Y-%m-%d %H:%M:%S %z" "$metadata_date" "+%s" 2> /dev/null || echo "0")
                 fi
@@ -596,6 +599,7 @@ scan_applications() {
 
     restore_scan_int_trap() {
         if [[ -n "$previous_int_trap" ]]; then
+            # eval: restore previous trap captured by $(trap -p INT)
             eval "$previous_int_trap"
         else
             trap - INT

@@ -188,17 +188,17 @@ refresh_launch_services_after_uninstall() {
     set +e
     # Add 10s timeout to prevent hanging (gc is usually fast)
     # run_with_timeout falls back to shell implementation if timeout command unavailable
-    run_with_timeout 10 "$lsregister" -gc > /dev/null 2>&1 || true
-    # Add 15s timeout for rebuild (can be slow on some systems)
+    run_with_timeout "$MOLE_TIMEOUT_PKG_LIST_SEC" "$lsregister" -gc > /dev/null 2>&1 || true
+    # 15s: lsregister rebuild can be slow on some systems, see lib/core/timeouts.sh
     run_with_timeout 15 "$lsregister" -r -f -domain local -domain user -domain system > /dev/null 2>&1
     success=$?
     # 124 = timeout exit code (from run_with_timeout or timeout command)
     if [[ $success -eq 124 ]]; then
         debug_log "LaunchServices rebuild timed out, trying lighter version"
-        run_with_timeout 10 "$lsregister" -r -f -domain local -domain user > /dev/null 2>&1
+        run_with_timeout "$MOLE_TIMEOUT_PKG_LIST_SEC" "$lsregister" -r -f -domain local -domain user > /dev/null 2>&1
         success=$?
     elif [[ $success -ne 0 ]]; then
-        run_with_timeout 10 "$lsregister" -r -f -domain local -domain user > /dev/null 2>&1
+        run_with_timeout "$MOLE_TIMEOUT_PKG_LIST_SEC" "$lsregister" -r -f -domain local -domain user > /dev/null 2>&1
         success=$?
     fi
     set -e
@@ -343,11 +343,13 @@ batch_uninstall_applications() {
     _restore_uninstall_traps() {
         _cleanup_sudo_keepalive
         if [[ -n "$old_trap_int" ]]; then
+            # eval: restore previous trap captured by $(trap -p INT)
             eval "$old_trap_int"
         else
             trap - INT
         fi
         if [[ -n "$old_trap_term" ]]; then
+            # eval: restore previous trap captured by $(trap -p TERM)
             eval "$old_trap_term"
         else
             trap - TERM
@@ -1011,7 +1013,7 @@ batch_uninstall_applications() {
     if [[ $brew_apps_removed -gt 0 && "${MOLE_DRY_RUN:-0}" != "1" ]]; then
         (
             HOMEBREW_NO_ENV_HINTS=1 HOMEBREW_NO_AUTO_UPDATE=1 NONINTERACTIVE=1 \
-                run_with_timeout 30 brew autoremove > /dev/null 2>&1 || true
+                run_with_timeout "$MOLE_TIMEOUT_DISK_VERIFY_SEC" brew autoremove > /dev/null 2>&1 || true
         ) &
         disown $! 2> /dev/null || true
     fi

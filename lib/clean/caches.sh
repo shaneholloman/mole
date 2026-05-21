@@ -56,7 +56,7 @@ clean_service_worker_cache() {
         local domain=$(basename "$cache_dir" | grep -oE '[a-zA-Z0-9][-a-zA-Z0-9]*\.[a-zA-Z]{2,}' | head -1 || echo "")
         local size=0
         local _du_out
-        if _du_out=$(run_with_timeout 5 du -skP "$cache_dir" 2> /dev/null); then
+        if _du_out=$(run_with_timeout "$MOLE_TIMEOUT_MEDIUM_PROBE_SEC" du -skP "$cache_dir" 2> /dev/null); then
             local _sz="${_du_out%%[^0-9]*}"
             [[ "$_sz" =~ ^[0-9]+$ ]] && size="$_sz"
         fi
@@ -82,7 +82,7 @@ clean_service_worker_cache() {
             fi
             cleaned_size=$((cleaned_size + size))
         fi
-    done < <(run_with_timeout 10 sh -c 'find "$1" -type d -depth 2 2>/dev/null || true' _ "$cache_path")
+    done < <(run_with_timeout "$MOLE_TIMEOUT_PKG_LIST_SEC" sh -c 'find "$1" -type d -depth 2 2>/dev/null || true' _ "$cache_path")
     if [[ $cleaned_size -gt 0 ]]; then
         local spinner_was_running=false
         if [[ -t 1 && -n "${INLINE_SPINNER_PID:-}" ]]; then
@@ -312,8 +312,10 @@ flush_python_group_if_needed() {
     local array_name="$2"
 
     local group_count=0
+    # eval: indirect array length by name; bash 3.2 has no nameref
     eval 'group_count=${#'"$array_name"'[@]}'
     [[ -z "$group_root" || "$group_count" -eq 0 ]] && return 0
+    # eval: indirect array copy by name; bash 3.2 has no nameref
     eval 'local -a group_dirs=( "${'"$array_name"'[@]}" )'
     # shellcheck disable=SC2154  # group_dirs assigned via eval above
     clean_python_bytecode_cache_group "$group_root" "${group_dirs[@]}"

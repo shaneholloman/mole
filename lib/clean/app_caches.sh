@@ -85,7 +85,7 @@ clean_xcode_tools() {
             if declare -F xcrun > /dev/null 2>&1; then
                 unavailable_devices_output=$(xcrun simctl list devices unavailable 2> /dev/null || true)
             else
-                unavailable_devices_output=$(run_with_timeout 2 xcrun simctl list devices unavailable 2> /dev/null || true)
+                unavailable_devices_output=$(run_with_timeout "$MOLE_TIMEOUT_QUICK_DETECT_SEC" xcrun simctl list devices unavailable 2> /dev/null || true)
                 if [[ -z "$unavailable_devices_output" ]]; then
                     unavailable_devices_output=$(xcrun simctl list devices unavailable 2> /dev/null || true)
                 fi
@@ -102,7 +102,7 @@ clean_xcode_tools() {
                     if declare -F xcrun > /dev/null 2>&1; then
                         xcrun simctl delete unavailable > /dev/null 2>&1 || _delete_rc=$?
                     else
-                        run_with_timeout 5 xcrun simctl delete unavailable > /dev/null 2>&1 || _delete_rc=$?
+                        run_with_timeout "$MOLE_TIMEOUT_MEDIUM_PROBE_SEC" xcrun simctl delete unavailable > /dev/null 2>&1 || _delete_rc=$?
                     fi
                     if [[ $_delete_rc -eq 0 ]]; then
                         echo -e "  ${GREEN}${ICON_SUCCESS}${NC} Unavailable simulators · deleted ${unavail_count} devices"

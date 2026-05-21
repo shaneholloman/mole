@@ -127,17 +127,17 @@ scan_installed_apps() {
     (
         # Skip AppleScript during tests to avoid permission dialogs
         if [[ "${MOLE_TEST_MODE:-0}" != "1" && "${MOLE_TEST_NO_AUTH:-0}" != "1" ]]; then
-            local running_apps=$(run_with_timeout 5 osascript -e 'tell application "System Events" to get bundle identifier of every application process' 2> /dev/null || echo "")
+            local running_apps=$(run_with_timeout "$MOLE_TIMEOUT_MEDIUM_PROBE_SEC" osascript -e 'tell application "System Events" to get bundle identifier of every application process' 2> /dev/null || echo "")
             echo "$running_apps" | tr ',' '\n' | sed -e 's/^ *//;s/ *$//' -e '/^$/d' -e '/^missing value$/d' > "$scan_tmp_dir/running.txt"
         fi
         # Fallback: lsappinfo is more reliable than osascript
         if command -v lsappinfo > /dev/null 2>&1; then
-            run_with_timeout 3 lsappinfo list 2> /dev/null | grep -o '"CFBundleIdentifier"="[^"]*"' | cut -d'"' -f4 >> "$scan_tmp_dir/running.txt" 2> /dev/null || true
+            run_with_timeout "$MOLE_TIMEOUT_SHORT_QUERY_SEC" lsappinfo list 2> /dev/null | grep -o '"CFBundleIdentifier"="[^"]*"' | cut -d'"' -f4 >> "$scan_tmp_dir/running.txt" 2> /dev/null || true
         fi
     ) &
     pids+=($!)
     (
-        run_with_timeout 5 find ~/Library/LaunchAgents /Library/LaunchAgents \
+        run_with_timeout "$MOLE_TIMEOUT_MEDIUM_PROBE_SEC" find ~/Library/LaunchAgents /Library/LaunchAgents \
             -name "*.plist" -type f 2> /dev/null |
             xargs -I {} basename {} .plist > "$scan_tmp_dir/agents.txt" 2> /dev/null || true
     ) &
@@ -238,7 +238,7 @@ is_bundle_orphaned() {
         else
             # Query mdfind with strict timeout (2 seconds max)
             local app_exists
-            app_exists=$(run_with_timeout 5 mdfind "kMDItemCFBundleIdentifier == '$bundle_id'" 2> /dev/null | head -1 || echo "")
+            app_exists=$(run_with_timeout "$MOLE_TIMEOUT_MEDIUM_PROBE_SEC" mdfind "kMDItemCFBundleIdentifier == '$bundle_id'" 2> /dev/null | head -1 || echo "")
             if [[ -n "$app_exists" ]]; then
                 echo "FOUND:$bundle_id" >> "$ORPHAN_MDFIND_CACHE_FILE"
                 return 1
@@ -290,7 +290,7 @@ is_claude_vm_bundle_orphaned() {
     fi
     if ! grep -Fxq "NOTFOUND:$claude_bundle_id" "$ORPHAN_MDFIND_CACHE_FILE" 2> /dev/null; then
         local app_exists
-        app_exists=$(run_with_timeout 5 mdfind "kMDItemCFBundleIdentifier == '$claude_bundle_id'" 2> /dev/null | head -1 || echo "")
+        app_exists=$(run_with_timeout "$MOLE_TIMEOUT_MEDIUM_PROBE_SEC" mdfind "kMDItemCFBundleIdentifier == '$claude_bundle_id'" 2> /dev/null | head -1 || echo "")
         if [[ -n "$app_exists" ]]; then
             echo "FOUND:$claude_bundle_id" >> "$ORPHAN_MDFIND_CACHE_FILE"
             return 1
@@ -403,6 +403,7 @@ clean_orphaned_app_data() {
                     fi
                 done
             done
+            # eval: restore shopt state captured by $(shopt -p)
             eval "$_nullglob_state"
         fi
     done
@@ -508,7 +509,7 @@ clean_orphaned_system_services() {
             fi
             if ! grep -Fxq "NOTFOUND:$bundle_id" "$mdfind_cache_file" 2> /dev/null; then
                 local app_found
-                app_found=$(run_with_timeout 5 mdfind "kMDItemCFBundleIdentifier == '$bundle_id'" 2> /dev/null | head -1 || echo "")
+                app_found=$(run_with_timeout "$MOLE_TIMEOUT_MEDIUM_PROBE_SEC" mdfind "kMDItemCFBundleIdentifier == '$bundle_id'" 2> /dev/null | head -1 || echo "")
                 if [[ -n "$app_found" ]]; then
                     echo "FOUND:$bundle_id" >> "$mdfind_cache_file"
                     return 0
@@ -806,7 +807,7 @@ clean_orphaned_container_stubs() {
 
         if mole_is_reverse_dns_bundle_id "$bundle_id"; then
             local app_found
-            app_found=$(run_with_timeout 5 mdfind "kMDItemCFBundleIdentifier == '$bundle_id'" 2> /dev/null | head -1 || echo "")
+            app_found=$(run_with_timeout "$MOLE_TIMEOUT_MEDIUM_PROBE_SEC" mdfind "kMDItemCFBundleIdentifier == '$bundle_id'" 2> /dev/null | head -1 || echo "")
             [[ -n "$app_found" ]] && return 0
         fi
 
@@ -859,6 +860,7 @@ clean_orphaned_container_stubs() {
         done
     done
 
+    # eval: restore shopt state captured by $(shopt -p)
     eval "$_ng_state"
 
     if [[ $removed_count -gt 0 ]]; then

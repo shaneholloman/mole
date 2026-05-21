@@ -153,6 +153,7 @@ debug_timer_start() {
     local varname="$1"
     local ts
     ts=$(perl -MTime::HiRes -e 'printf "%.3f\n", Time::HiRes::time()' 2> /dev/null || date +%s)
+    # eval: indirect write by name; bash 3.2 has no nameref
     eval "$varname=$ts"
 }
 
@@ -161,6 +162,7 @@ debug_timer_end() {
     local label="$1"
     local start_var="$2"
     local start_ts
+    # eval: indirect read by name; bash 3.2 has no nameref
     eval "start_ts=\$$start_var"
     [[ -z "$start_ts" ]] && return 0
     local end_ts

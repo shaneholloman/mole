@@ -210,7 +210,7 @@ clean_deep_system() {
         if safe_sudo_remove "$cache_dir"; then
             code_sign_cleaned=$((code_sign_cleaned + 1))
         fi
-    done < <(run_with_timeout 5 command find /private/var/folders -maxdepth 5 -type d -name "*.code_sign_clone" -path "*/X/*" -print0 2> /dev/null || true)
+    done < <(run_with_timeout "$MOLE_TIMEOUT_MEDIUM_PROBE_SEC" command find /private/var/folders -maxdepth 5 -type d -name "*.code_sign_clone" -path "*/X/*" -print0 2> /dev/null || true)
     stop_section_spinner
     [[ $code_sign_cleaned -gt 0 ]] && log_success "Browser code signature caches, $code_sign_cleaned items"
 
@@ -247,7 +247,7 @@ clean_deep_system() {
         -name "com.apple.gpuarchiver" -o \
         -name "com.apple.metal" -o \
         -name "com.apple.metalfe" \
-        \) -path "*/C/*" -print0 2> /dev/null || true)
+        \) -path "*/C/*" -print0 2> /dev/null || true) # 8s: deep /private/var/folders walk, see lib/core/timeouts.sh
     stop_section_spinner
     if [[ $gpu_cache_cleaned -gt 0 ]]; then
         local gpu_cache_label="items"
@@ -319,7 +319,7 @@ clean_time_machine_failed_backups() {
     start_section_spinner "Checking Time Machine configuration..."
     local spinner_active=true
     local tm_info
-    tm_info=$(run_with_timeout 2 tmutil destinationinfo 2>&1 || echo "failed")
+    tm_info=$(run_with_timeout "$MOLE_TIMEOUT_QUICK_DETECT_SEC" tmutil destinationinfo 2>&1 || echo "failed")
     if [[ "$tm_info" == *"No destinations configured"* || "$tm_info" == "failed" ]]; then
         if [[ "$spinner_active" == "true" ]]; then
             stop_section_spinner
@@ -366,7 +366,7 @@ clean_time_machine_failed_backups() {
     fi
     for volume in "${backup_volumes[@]}"; do
         local fs_type
-        fs_type=$(run_with_timeout 1 command df -T "$volume" 2> /dev/null | tail -1 | awk '{print $2}' || echo "unknown")
+        fs_type=$(run_with_timeout 1 command df -T "$volume" 2> /dev/null | tail -1 | awk '{print $2}' || echo "unknown") # 1s: volume FS-type probe, see lib/core/timeouts.sh
         case "$fs_type" in
             nfs | smbfs | afpfs | cifs | webdav | unknown) continue ;;
         esac
@@ -416,7 +416,7 @@ clean_time_machine_failed_backups() {
                 else
                     echo -e "  ${YELLOW}!${NC} Could not delete: $backup_name · try manually with sudo"
                 fi
-            done < <(run_with_timeout 15 find "$backupdb_dir" -maxdepth 3 -type d \( -name "*.inProgress" -o -name "*.inprogress" \) 2> /dev/null || true)
+            done < <(run_with_timeout 15 find "$backupdb_dir" -maxdepth 3 -type d \( -name "*.inProgress" -o -name "*.inprogress" \) 2> /dev/null || true) # 15s: Time Machine backupdb find, see lib/core/timeouts.sh
         fi
         # APFS bundles.
         for bundle in "$volume"/*.backupbundle "$volume"/*.sparsebundle; do
@@ -469,7 +469,7 @@ clean_time_machine_failed_backups() {
                     else
                         echo -e "  ${YELLOW}!${NC} Could not delete from bundle: $backup_name"
                     fi
-                done < <(run_with_timeout 15 find "$mounted_path" -maxdepth 3 -type d \( -name "*.inProgress" -o -name "*.inprogress" \) 2> /dev/null || true)
+                done < <(run_with_timeout 15 find "$mounted_path" -maxdepth 3 -type d \( -name "*.inProgress" -o -name "*.inprogress" \) 2> /dev/null || true) # 15s: TM sparsebundle inner find, see lib/core/timeouts.sh
             fi
         done
     done
@@ -524,7 +524,7 @@ clean_local_snapshots() {
 
     start_section_spinner "Checking local snapshots..."
     local snapshot_list
-    snapshot_list=$(run_with_timeout 3 tmutil listlocalsnapshots / 2> /dev/null || true)
+    snapshot_list=$(run_with_timeout "$MOLE_TIMEOUT_SHORT_QUERY_SEC" tmutil listlocalsnapshots / 2> /dev/null || true)
     stop_section_spinner
     [[ -z "$snapshot_list" ]] && return 0
 

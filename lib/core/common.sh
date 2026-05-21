@@ -18,6 +18,7 @@ prepare_mole_tmpdir > /dev/null
 source "$_MOLE_CORE_DIR/log.sh"
 
 source "$_MOLE_CORE_DIR/timeout.sh"
+source "$_MOLE_CORE_DIR/timeouts.sh"
 source "$_MOLE_CORE_DIR/file_ops.sh"
 source "$_MOLE_CORE_DIR/help.sh"
 source "$_MOLE_CORE_DIR/ui.sh"
@@ -122,7 +123,7 @@ update_via_homebrew() {
     if echo "$upgrade_output" | grep -q "already installed"; then
         local installed_version
         installed_version=$(HOMEBREW_NO_ENV_HINTS=1 HOMEBREW_NO_AUTO_UPDATE=1 \
-            run_with_timeout 10 brew list --versions mole 2> /dev/null | awk '{print $2}')
+            run_with_timeout "$MOLE_TIMEOUT_PKG_LIST_SEC" brew list --versions mole 2> /dev/null | awk '{print $2}')
         [[ -z "$installed_version" ]] && installed_version=$(mo --version 2> /dev/null | awk '/Mole version/ {print $3; exit}')
         echo ""
         echo -e "${GREEN}${ICON_SUCCESS}${NC} Already on latest version, ${installed_version:-$current_version}"
@@ -135,7 +136,7 @@ update_via_homebrew() {
         echo "$upgrade_output" | grep -Ev "^(==>|Updating Homebrew|Warning:)" || true
         local new_version
         new_version=$(HOMEBREW_NO_ENV_HINTS=1 HOMEBREW_NO_AUTO_UPDATE=1 \
-            run_with_timeout 10 brew list --versions mole 2> /dev/null | awk '{print $2}')
+            run_with_timeout "$MOLE_TIMEOUT_PKG_LIST_SEC" brew list --versions mole 2> /dev/null | awk '{print $2}')
         [[ -z "$new_version" ]] && new_version=$(mo --version 2> /dev/null | awk '/Mole version/ {print $3; exit}')
         echo ""
         echo -e "${GREEN}${ICON_SUCCESS}${NC} Updated to latest version, ${new_version:-$current_version}"

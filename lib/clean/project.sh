@@ -730,6 +730,7 @@ select_purge_categories() {
         previous_exit_trap=""
         previous_int_trap=""
         previous_term_trap=""
+        # eval: restore caller traps captured by $(trap -p)
         [[ -n "$_prev_exit" ]] && eval "$_prev_exit"
         [[ -n "$_prev_int" ]] && eval "$_prev_int"
         [[ -n "$_prev_term" ]] && eval "$_prev_term"
@@ -1094,6 +1095,7 @@ clean_project_artifacts() {
     # Restore caller traps after this function completes.
     if [[ "$trap_installed_by_this_call" == "true" ]]; then
         trap - INT TERM
+        # eval: restore caller traps captured by $(trap -p)
         [[ -n "$previous_int_trap" ]] && eval "$previous_int_trap"
         [[ -n "$previous_term_trap" ]] && eval "$previous_term_trap"
     fi

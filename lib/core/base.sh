@@ -876,6 +876,7 @@ update_progress_if_needed() {
 
     # Get last update time from variable
     local last_time
+    # eval: indirect read by name; bash 3.2 has no nameref (declare -n)
     eval "last_time=\${$last_update_var:-0}"
     [[ "$last_time" =~ ^[0-9]+$ ]] || last_time=0
 
@@ -886,6 +887,7 @@ update_progress_if_needed() {
         start_section_spinner "Scanning items... $completed/$total"
 
         # Update the last_update_time variable
+        # eval: indirect write by name; bash 3.2 has no nameref
         eval "$last_update_var=$current_time"
         return 0
     fi

@@ -235,6 +235,7 @@ run_with_timeout() {
     set -e
 
     if [[ -n "$previous_int_trap" ]]; then
+        # eval: restore previous trap captured by $(trap -p INT)
         eval "$previous_int_trap"
     else
         trap - INT
