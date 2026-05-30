@@ -128,13 +128,6 @@ resolve_mole_source_path() {
     [[ -n "$mole_path" ]] && printf '%s\n' "$mole_path"
 }
 
-resolve_current_mole_path() {
-    local mole_path
-    mole_path=$(resolve_mole_source_path || true)
-    [[ -n "$mole_path" ]] || return 1
-    printf '%s\n' "$mole_path"
-}
-
 is_homebrew_mole_path() {
     local mole_path="$1"
     local has_brew="$2"
@@ -171,7 +164,9 @@ is_homebrew_mole_path() {
     return 1
 }
 
-# Install detection follows the invoked Mole script, not PATH.
+# Install detection (Homebrew vs manual).
+# Always follows the invoked Mole script, never PATH, so update and remove act
+# on the Mole the user actually ran instead of another copy earlier in PATH.
 is_homebrew_install() {
     local has_brew=false
     if command -v brew > /dev/null 2>&1; then
@@ -179,12 +174,8 @@ is_homebrew_install() {
     fi
 
     local mole_path
-    mole_path=$(resolve_current_mole_path || true)
-    if is_homebrew_mole_path "$mole_path" "$has_brew"; then
-        return 0
-    fi
-
-    return 1
+    mole_path=$(resolve_mole_source_path || true)
+    is_homebrew_mole_path "$mole_path" "$has_brew"
 }
 
 get_install_channel() {
@@ -397,12 +388,13 @@ update_mole() {
         exit 0
     fi
 
+    # Resolve the invoked Mole up front so the installer targets this manual
+    # install, not another mole earlier in PATH. Fail before any download.
     local mole_path
-    if ! mole_path=$(resolve_current_mole_path); then
+    if ! mole_path=$(resolve_mole_source_path); then
         log_error "Unable to resolve current Mole path"
         exit 1
     fi
-
     local install_dir
     if ! install_dir="$(cd "$(dirname "$mole_path")" && pwd)"; then
         log_error "Unable to resolve current Mole install directory"
