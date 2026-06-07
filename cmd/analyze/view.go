@@ -13,6 +13,11 @@ func (m model) View() string {
 	var b strings.Builder
 	fmt.Fprintln(&b)
 
+	// A warm cache already loaded for the current path keeps rendering while the
+	// background refresh runs, instead of blanking to a scan-only screen. Fresh
+	// scans (no cached entries yet) still fall back to the scan-only view.
+	showingCachedView := m.scanning && !m.inOverviewMode() && m.viewNeedsRefresh && len(m.entries) > 0
+
 	if m.inOverviewMode() {
 		freeLabel := ""
 		if m.diskFree > 0 {
@@ -94,7 +99,10 @@ func (m model) View() string {
 			}
 		}
 
-		return b.String()
+		if !showingCachedView {
+			return b.String()
+		}
+		fmt.Fprintf(&b, "%sShowing cached results while refreshing...%s\n\n", colorGray, colorReset)
 	}
 
 	if m.showLargeFiles {

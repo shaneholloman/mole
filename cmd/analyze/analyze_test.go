@@ -331,6 +331,50 @@ func TestViewShowsEscBackAndCtrlCQuitHints(t *testing.T) {
 	}
 }
 
+func TestViewKeepsCachedEntriesWhileRefreshing(t *testing.T) {
+	m := model{
+		path:             "/tmp/project/child",
+		history:          []historyEntry{{Path: "/tmp/project"}},
+		entries:          []dirEntry{{Name: "warmed-child", Path: "/tmp/project/child/warmed-child", Size: 100, IsDir: true}},
+		totalSize:        100,
+		scanning:         true,
+		viewNeedsRefresh: true,
+	}
+
+	view := m.View()
+	if !strings.Contains(view, "warmed-child") {
+		t.Fatalf("expected cached entry to render during refresh, got:\n%s", view)
+	}
+	if !strings.Contains(view, "Showing cached results while refreshing") {
+		t.Fatalf("expected refreshing hint during cached refresh, got:\n%s", view)
+	}
+}
+
+func TestViewBlanksToScanOnlyWithoutWarmCache(t *testing.T) {
+	// Right after entering an uncached child, m.entries still holds the parent's
+	// stale entries while viewNeedsRefresh is false. The view must not paint
+	// those stale rows under the new path; it stays scan-only until results land.
+	m := model{
+		path:             "/tmp/project/child",
+		history:          []historyEntry{{Path: "/tmp/project"}},
+		entries:          []dirEntry{{Name: "stale-parent-row", Path: "/tmp/project/stale-parent-row", Size: 100, IsDir: true}},
+		totalSize:        100,
+		scanning:         true,
+		viewNeedsRefresh: false,
+	}
+
+	view := m.View()
+	if strings.Contains(view, "stale-parent-row") {
+		t.Fatalf("expected scan-only view to hide stale entries, got:\n%s", view)
+	}
+	if strings.Contains(view, "Showing cached results while refreshing") {
+		t.Fatalf("did not expect cached-refresh hint without a warm cache, got:\n%s", view)
+	}
+	if !strings.Contains(view, "Scanning") {
+		t.Fatalf("expected scan-only view to show scanning progress, got:\n%s", view)
+	}
+}
+
 func TestOverviewViewShowsFreeSpaceLabel(t *testing.T) {
 	m := model{
 		path:       "/",
