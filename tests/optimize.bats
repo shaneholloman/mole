@@ -97,7 +97,8 @@ EOF
 }
 
 @test "fix_broken_preferences repairs only non-Apple preference plists" {
-	run env HOME="$HOME" PROJECT_ROOT="$PROJECT_ROOT" bash --noprofile --norc <<'EOF'
+	local test_home="$HOME/fixprefs-basic"
+	run env HOME="$test_home" PROJECT_ROOT="$PROJECT_ROOT" bash --noprofile --norc <<'EOF'
 set -euo pipefail
 source "$PROJECT_ROOT/lib/core/common.sh"
 source "$PROJECT_ROOT/lib/optimize/maintenance.sh"
@@ -127,15 +128,16 @@ EOF
 
 	[ "$status" -eq 0 ]
 	[[ "$output" == *"count=3"* ]]
-	[[ "$output" == *"remove:$HOME/Library/Preferences/com.example.broken.plist"* ]]
-	[[ "$output" == *"remove:$HOME/Library/Preferences/ByHost/com.example.byhost.plist"* ]]
-	[[ "$output" == *"remove:$HOME/Library/Preferences/ByHost/loginwindow.plist"* ]]
-	[[ "$output" != *"lint:$HOME/Library/Preferences/com.apple.broken.plist"* ]]
-	[[ "$output" != *"lint:$HOME/Library/Preferences/loginwindow.plist"* ]]
+	[[ "$output" == *"remove:$test_home/Library/Preferences/com.example.broken.plist"* ]]
+	[[ "$output" == *"remove:$test_home/Library/Preferences/ByHost/com.example.byhost.plist"* ]]
+	[[ "$output" == *"remove:$test_home/Library/Preferences/ByHost/loginwindow.plist"* ]]
+	[[ "$output" != *"lint:$test_home/Library/Preferences/com.apple.broken.plist"* ]]
+	[[ "$output" != *"lint:$test_home/Library/Preferences/loginwindow.plist"* ]]
 }
 
 @test "fix_broken_preferences does not count safe_remove failures" {
-	run env HOME="$HOME" PROJECT_ROOT="$PROJECT_ROOT" bash --noprofile --norc <<'EOF'
+	local test_home="$HOME/fixprefs-remove-failure"
+	run env HOME="$test_home" PROJECT_ROOT="$PROJECT_ROOT" bash --noprofile --norc <<'EOF'
 set -euo pipefail
 source "$PROJECT_ROOT/lib/core/common.sh"
 source "$PROJECT_ROOT/lib/optimize/maintenance.sh"
@@ -156,7 +158,8 @@ EOF
 }
 
 @test "fix_broken_preferences does not count protected Adobe plists" {
-	run env HOME="$HOME" PROJECT_ROOT="$PROJECT_ROOT" MO_DEBUG=1 bash --noprofile --norc <<'EOF'
+	local test_home="$HOME/fixprefs-protected"
+	run env HOME="$test_home" PROJECT_ROOT="$PROJECT_ROOT" MO_DEBUG=1 bash --noprofile --norc <<'EOF'
 set -euo pipefail
 source "$PROJECT_ROOT/lib/core/common.sh"
 source "$PROJECT_ROOT/lib/optimize/maintenance.sh"

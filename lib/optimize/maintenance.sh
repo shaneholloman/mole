@@ -42,6 +42,12 @@ _repair_preference_plists_in_dir() {
     while IFS= read -r plist_file; do
         [[ -f "$plist_file" ]] || continue
         _preference_plist_is_protected "$plist_file" "$protect_loginwindow" && continue
+        if declare -f should_protect_path > /dev/null 2>&1 && should_protect_path "$plist_file"; then
+            continue
+        fi
+        if declare -f is_path_whitelisted > /dev/null 2>&1 && is_path_whitelisted "$plist_file"; then
+            continue
+        fi
 
         plutil -lint "$plist_file" > /dev/null 2>&1 && continue
 
