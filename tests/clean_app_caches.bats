@@ -221,7 +221,7 @@ clean_ai_apps
 EOF
 
     [ "$status" -eq 0 ]
-    [[ "$output" == *"Codex Desktop state · skipped by default"* ]]
+    [[ "$output" == *"Codex Desktop state · preserved (sessions, credentials)"* ]]
     [[ "$output" == *"NOTE_ACTIVITY"* ]]
     [[ "$output" != *"Codex cache"* ]]
     [[ "$output" != *"Codex CLI logs"* ]]

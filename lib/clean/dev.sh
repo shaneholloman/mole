@@ -1703,7 +1703,7 @@ clean_codex_cli() {
         return 0
     fi
 
-    echo -e "  ${GRAY}${ICON_WARNING}${NC} Codex CLI state · skipped by default"
+    echo -e "  ${GRAY}${ICON_WARNING}${NC} Codex CLI state · preserved (sessions, credentials)"
     note_activity
     debug_log "Codex CLI state left intact by default: $codex_root"
 }

@@ -75,7 +75,7 @@ clean_codex_cli
 EOF
 
     assert_run_success
-    assert_output_contains "Codex CLI state · skipped by default"
+    assert_output_contains "Codex CLI state · preserved (sessions, credentials)"
     assert_output_not_contains "SAFE_CLEAN:"
     [ -f "$HOME/.codex/cache/session_index.jsonl" ]
     [ -f "$HOME/.codex/cache/codex_app_directory/index.json" ]
