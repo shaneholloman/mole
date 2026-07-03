@@ -897,6 +897,60 @@ clean_app_caches() {
     fi
 
     clean_group_container_caches
+    clean_handoff_pasteboard_cache
+}
+
+# Handoff / Universal Clipboard staging cache. useractivityd is supposed to
+# prune shared-pasteboard items itself but can leave hundreds of GB behind
+# after heavy Command+C use (#1178). Items are ephemeral transfer buffers by
+# design; anything modified within the last hour is kept so an in-flight
+# clipboard sync between devices is never cut off.
+clean_handoff_pasteboard_cache() {
+    local pasteboard_dir="$HOME/Library/Group Containers/group.com.apple.coreservices.useractivityd/shared-pasteboard"
+    [[ -d "$pasteboard_dir" ]] || return 0
+    [[ -L "$pasteboard_dir" ]] && return 0
+    if is_path_whitelisted "$pasteboard_dir" 2> /dev/null; then
+        return 0
+    fi
+
+    local cleaned_count=0
+    local total_kb=0
+    local item
+    while IFS= read -r -d '' item; do
+        [[ -e "$item" ]] || continue
+        [[ -L "$item" ]] && continue
+        if should_protect_path "$item" 2> /dev/null || is_path_whitelisted "$item" 2> /dev/null; then
+            continue
+        fi
+        local item_kb
+        item_kb=$(get_path_size_kb "$item" 2> /dev/null || echo 0)
+        [[ "$item_kb" =~ ^[0-9]+$ ]] || item_kb=0
+        if [[ "$DRY_RUN" == "true" ]]; then
+            cleaned_count=$((cleaned_count + 1))
+            total_kb=$((total_kb + item_kb))
+            continue
+        fi
+        if safe_remove "$item" true 2> /dev/null; then
+            cleaned_count=$((cleaned_count + 1))
+            total_kb=$((total_kb + item_kb))
+        fi
+    done < <(command find "$pasteboard_dir" -mindepth 1 -maxdepth 1 -mmin +60 -print0 2> /dev/null || true)
+
+    [[ $cleaned_count -gt 0 ]] || return 0
+
+    local size_human
+    size_human=$(bytes_to_human "$((total_kb * 1024))")
+    if [[ "$DRY_RUN" == "true" ]]; then
+        echo -e "  ${YELLOW}${ICON_DRY_RUN}${NC} Handoff clipboard cache${NC}, $(colorize_human_size "$size_human") ${YELLOW}dry${NC}"
+    else
+        local line_color
+        line_color=$(cleanup_result_color_kb "$total_kb")
+        echo -e "  ${line_color}${ICON_SUCCESS}${NC} Handoff clipboard cache${NC}, ${line_color}$size_human${NC}"
+    fi
+    files_cleaned=$((files_cleaned + cleaned_count))
+    total_size_cleaned=$((total_size_cleaned + total_kb))
+    total_items=$((total_items + 1))
+    note_activity
 }
 
 # Process a single container cache directory.

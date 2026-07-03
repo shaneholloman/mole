@@ -598,6 +598,75 @@ EOF
     [[ "$output" == *"PASS"* ]]
 }
 
+@test "clean_handoff_pasteboard_cache removes stale items and keeps fresh ones (#1178)" {
+    run env HOME="$HOME" PROJECT_ROOT="$PROJECT_ROOT" DRY_RUN=false /bin/bash --noprofile --norc <<'EOF'
+set -euo pipefail
+source "$PROJECT_ROOT/lib/core/common.sh"
+source "$PROJECT_ROOT/lib/clean/user.sh"
+start_section_spinner() { :; }
+stop_section_spinner() { :; }
+note_activity() { :; }
+files_cleaned=0
+total_size_cleaned=0
+total_items=0
+
+pb="$HOME/Library/Group Containers/group.com.apple.coreservices.useractivityd/shared-pasteboard"
+mkdir -p "$pb/stale-item" "$pb/fresh-item"
+echo "payload" > "$pb/stale-item/data"
+echo "payload" > "$pb/fresh-item/data"
+touch -t 202001010000 "$pb/stale-item"
+
+clean_handoff_pasteboard_cache
+
+# Stale item is removed, the in-flight (fresh) item and the container root
+# survive. If path protection ever tightens over group.com.apple.* the stale
+# item would survive too and this test must fail loudly.
+if [[ ! -e "$pb/stale-item" ]] && [[ -e "$pb/fresh-item" ]] && [[ -d "$pb" ]]; then
+    echo "PASS"
+else
+    echo "FAIL"
+    exit 1
+fi
+EOF
+
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Handoff clipboard cache"* ]] || return 1
+    [[ "$output" == *"PASS"* ]] || return 1
+}
+
+@test "clean_handoff_pasteboard_cache dry run reports without deleting" {
+    run env HOME="$HOME" PROJECT_ROOT="$PROJECT_ROOT" DRY_RUN=true /bin/bash --noprofile --norc <<'EOF'
+set -euo pipefail
+source "$PROJECT_ROOT/lib/core/common.sh"
+source "$PROJECT_ROOT/lib/clean/user.sh"
+start_section_spinner() { :; }
+stop_section_spinner() { :; }
+note_activity() { :; }
+files_cleaned=0
+total_size_cleaned=0
+total_items=0
+
+pb="$HOME/Library/Group Containers/group.com.apple.coreservices.useractivityd/shared-pasteboard"
+mkdir -p "$pb/stale-item"
+echo "payload" > "$pb/stale-item/data"
+touch -t 202001010000 "$pb/stale-item"
+
+clean_handoff_pasteboard_cache
+
+if [[ -e "$pb/stale-item/data" ]]; then
+    echo "PASS"
+else
+    echo "FAIL"
+    exit 1
+fi
+EOF
+
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Handoff clipboard cache"* ]] || return 1
+    [[ "$output" == *"dry"* ]] || return 1
+    [[ "$output" == *"PASS"* ]] || return 1
+}
+
 @test "clean_group_container_caches skips Apple Notes group container" {
     run env HOME="$HOME" PROJECT_ROOT="$PROJECT_ROOT" DRY_RUN=false /bin/bash --noprofile --norc <<'EOF'
 set -euo pipefail
