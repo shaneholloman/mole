@@ -626,6 +626,32 @@ EOF
 	[[ "$output" != *"$volumes_root/in-use-runtime"* ]]
 }
 
+@test "clean_xcode_simulator_runtime_volumes deletes nothing when mount enumeration fails" {
+	local volumes_root="$HOME/sim-volumes"
+	mkdir -p "$volumes_root/runtime-a" "$volumes_root/runtime-b"
+
+	run env HOME="$HOME" PROJECT_ROOT="$PROJECT_ROOT" MOLE_XCODE_SIM_RUNTIME_VOLUMES_ROOT="$volumes_root" MOLE_XCODE_SIM_RUNTIME_CRYPTEX_ROOT="$HOME/none" bash --noprofile --norc <<'EOF'
+set -euo pipefail
+source "$PROJECT_ROOT/lib/core/common.sh"
+source "$PROJECT_ROOT/lib/clean/dev.sh"
+
+DRY_RUN=false
+note_activity() { :; }
+has_sudo_session() { return 0; }
+is_path_whitelisted() { return 1; }
+should_protect_path() { return 1; }
+# mount failed: no lines. Without the guard every runtime is UNUSED and deleted.
+_sim_runtime_mount_points() { printf ''; }
+_sim_runtime_size_kb() { echo "1"; }
+safe_sudo_remove() { echo "REMOVE:$1"; return 0; }
+
+clean_xcode_simulator_runtime_volumes
+EOF
+
+	[ "$status" -eq 0 ] || return 1
+	[[ "$output" != *"REMOVE:"* ]] || { echo "deleted a volume despite unknown mount state"; return 1; }
+}
+
 @test "clean_dev_mobile continues cleanup when simctl is unavailable" {
 	run env HOME="$HOME" PROJECT_ROOT="$PROJECT_ROOT" bash --noprofile --norc <<'EOF'
 set -euo pipefail

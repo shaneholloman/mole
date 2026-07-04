@@ -252,9 +252,16 @@ is_bundle_orphaned() {
         if [[ $_cache_rc -eq 0 ]]; then
             return 1
         elif [[ $_cache_rc -eq 2 ]]; then
-            local app_exists
-            app_exists=$(run_with_timeout "$MOLE_TIMEOUT_MEDIUM_PROBE_SEC" mdfind "kMDItemCFBundleIdentifier == '$bundle_id'" 2> /dev/null | head -1 || echo "")
-            if [[ -n "$app_exists" ]]; then
+            # Capture mdfind's own exit code, not head's: on timeout (124)
+            # the piped form yielded empty output and was cached as "not
+            # installed", so a transient Spotlight stall marked a live app as
+            # an orphan and deleted its data. On timeout/error, keep the app
+            # and do not poison the cache.
+            local app_exists _mdfind_rc=0
+            app_exists=$(run_with_timeout "$MOLE_TIMEOUT_MEDIUM_PROBE_SEC" mdfind "kMDItemCFBundleIdentifier == '$bundle_id'" 2> /dev/null) || _mdfind_rc=$?
+            if [[ $_mdfind_rc -ne 0 ]]; then
+                return 1
+            elif [[ -n "$app_exists" ]]; then
                 _mdfind_cache_store "$bundle_id" "true"
                 return 1
             else
@@ -299,9 +306,12 @@ is_claude_vm_bundle_orphaned() {
     if [[ $_cache_rc -eq 0 ]]; then
         return 1
     elif [[ $_cache_rc -eq 2 ]]; then
-        local app_exists
-        app_exists=$(run_with_timeout "$MOLE_TIMEOUT_MEDIUM_PROBE_SEC" mdfind "kMDItemCFBundleIdentifier == '$claude_bundle_id'" 2> /dev/null | head -1 || echo "")
-        if [[ -n "$app_exists" ]]; then
+        # On mdfind timeout/error keep the app (see is_bundle_orphaned).
+        local app_exists _mdfind_rc=0
+        app_exists=$(run_with_timeout "$MOLE_TIMEOUT_MEDIUM_PROBE_SEC" mdfind "kMDItemCFBundleIdentifier == '$claude_bundle_id'" 2> /dev/null) || _mdfind_rc=$?
+        if [[ $_mdfind_rc -ne 0 ]]; then
+            return 1
+        elif [[ -n "$app_exists" ]]; then
             _mdfind_cache_store "$claude_bundle_id" "true"
             return 1
         fi
@@ -537,9 +547,14 @@ clean_orphaned_system_services() {
             if [[ $_cache_rc -eq 0 ]]; then
                 return 0
             elif [[ $_cache_rc -eq 2 ]]; then
-                local app_found
-                app_found=$(run_with_timeout "$MOLE_TIMEOUT_MEDIUM_PROBE_SEC" mdfind "kMDItemCFBundleIdentifier == '$bundle_id'" 2> /dev/null | head -1 || echo "")
-                if [[ -n "$app_found" ]]; then
+                # On mdfind timeout/error assume the app exists (return 0 =
+                # installed here) so a transient Spotlight stall never flags a
+                # live app's service/container as an orphan; do not cache.
+                local app_found _mdfind_rc=0
+                app_found=$(run_with_timeout "$MOLE_TIMEOUT_MEDIUM_PROBE_SEC" mdfind "kMDItemCFBundleIdentifier == '$bundle_id'" 2> /dev/null) || _mdfind_rc=$?
+                if [[ $_mdfind_rc -ne 0 ]]; then
+                    return 0
+                elif [[ -n "$app_found" ]]; then
                     _mdfind_cache_store "$bundle_id" "true"
                     return 0
                 fi
@@ -909,9 +924,14 @@ clean_orphaned_container_stubs() {
             if [[ $_cache_rc -eq 0 ]]; then
                 return 0
             elif [[ $_cache_rc -eq 2 ]]; then
-                local app_found
-                app_found=$(run_with_timeout "$MOLE_TIMEOUT_MEDIUM_PROBE_SEC" mdfind "kMDItemCFBundleIdentifier == '$bundle_id'" 2> /dev/null | head -1 || echo "")
-                if [[ -n "$app_found" ]]; then
+                # On mdfind timeout/error assume the app exists (return 0 =
+                # installed here) so a transient Spotlight stall never flags a
+                # live app's service/container as an orphan; do not cache.
+                local app_found _mdfind_rc=0
+                app_found=$(run_with_timeout "$MOLE_TIMEOUT_MEDIUM_PROBE_SEC" mdfind "kMDItemCFBundleIdentifier == '$bundle_id'" 2> /dev/null) || _mdfind_rc=$?
+                if [[ $_mdfind_rc -ne 0 ]]; then
+                    return 0
+                elif [[ -n "$app_found" ]]; then
                     _mdfind_cache_store "$bundle_id" "true"
                     return 0
                 fi

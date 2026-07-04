@@ -812,6 +812,14 @@ clean_xcode_simulator_runtime_volumes() {
         [[ -n "$line" ]] && mount_points+=("$line")
     done < <(_sim_runtime_mount_points)
 
+    # A real macOS system always mounts at least "/", so an empty list means
+    # `mount` failed. Without this guard every candidate falls to the UNUSED
+    # branch below and gets sudo-deleted, possibly while still mounted. Treat
+    # "cannot enumerate mounts" as "cannot prove unused" and skip cleanup.
+    if [[ ${#mount_points[@]} -eq 0 ]]; then
+        return 0
+    fi
+
     local -a entry_statuses=()
     local -a sorted_candidates=()
     local sorted

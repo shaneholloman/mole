@@ -350,11 +350,22 @@ clean_time_machine_failed_backups() {
         echo -e "  ${GREEN}${ICON_SUCCESS}${NC} No incomplete backups found"
         return 0
     fi
-    if tm_is_running; then
+    # tm_is_running is tri-state: 0 running, 1 idle, 2 status-unknown. Treat
+    # both running and unknown as "do not touch backups", the same idiom
+    # clean_local_snapshots uses. A bare `if tm_is_running` would let a
+    # transient tmutil error (rc 2) fall through and delete an in-progress
+    # backup.
+    local rc_tm_running=0
+    tm_is_running || rc_tm_running=$?
+    if [[ $rc_tm_running -eq 0 || $rc_tm_running -eq 2 ]]; then
         if [[ "$spinner_active" == "true" ]]; then
             stop_section_spinner
         fi
-        echo -e "  ${YELLOW}!${NC} Time Machine backup in progress, skipping cleanup"
+        if [[ $rc_tm_running -eq 2 ]]; then
+            echo -e "  ${YELLOW}!${NC} Could not determine Time Machine status, skipping cleanup"
+        else
+            echo -e "  ${YELLOW}!${NC} Time Machine backup in progress, skipping cleanup"
+        fi
         return 0
     fi
     if [[ "$spinner_active" == "true" ]]; then
@@ -393,6 +404,10 @@ clean_time_machine_failed_backups() {
                 # Only delete old incomplete backups (safety window).
                 local file_mtime
                 file_mtime=$(get_file_mtime "$inprogress_file")
+                # get_file_mtime returns 0 when stat fails. A 0 here would make
+                # the backup look ancient and clear the safety window, so treat
+                # "cannot read mtime" as "too recent to touch" and keep it.
+                [[ "$file_mtime" =~ ^[0-9]+$ && "$file_mtime" -gt 0 ]] || continue
                 local current_time
                 current_time=$(get_epoch_seconds)
                 local hours_old=$(((current_time - file_mtime) / 3600))
@@ -447,6 +462,8 @@ clean_time_machine_failed_backups() {
                     [[ -d "$inprogress_file" ]] || continue
                     local file_mtime
                     file_mtime=$(get_file_mtime "$inprogress_file")
+                    # Keep the backup if its mtime cannot be read (see above).
+                    [[ "$file_mtime" =~ ^[0-9]+$ && "$file_mtime" -gt 0 ]] || continue
                     local current_time
                     current_time=$(get_epoch_seconds)
                     local hours_old=$(((current_time - file_mtime) / 3600))
