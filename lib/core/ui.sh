@@ -307,18 +307,8 @@ INLINE_SPINNER_MSG_FILE=""
 INLINE_SPINNER_CONTROL_DIR=""
 
 create_inline_spinner_control_dir() {
-    local control_root=""
-
-    if [[ "$(id -u 2> /dev/null || echo 1)" == "0" ]]; then
-        # A whole-command sudo run must not place root-written control files in
-        # the invoking user's temp tree. /private/var/root is root-owned on
-        # macOS and cannot be renamed or populated by the invoking user.
-        control_root="/private/var/root"
-        [[ -d "$control_root" && ! -L "$control_root" ]] || control_root="/var/root"
-    else
-        ensure_mole_temp_root
-        control_root="$MOLE_RESOLVED_TMPDIR"
-    fi
+    ensure_mole_temp_root || return 1
+    local control_root="$MOLE_RESOLVED_TMPDIR"
 
     [[ -d "$control_root" && ! -L "$control_root" ]] || return 1
     INLINE_SPINNER_CONTROL_DIR=$(umask 077 && mktemp -d "$control_root/.mole-spinner.XXXXXX") || return 1
@@ -475,7 +465,10 @@ update_inline_spinner_message() {
     # Write-then-rename so the spinner never reads a half-truncated file.
     local tmp_file
     tmp_file=$(umask 077 && mktemp "$INLINE_SPINNER_CONTROL_DIR/message.XXXXXX") || return 1
-    printf '%s\n' "$display_message" > "$tmp_file" 2> /dev/null || return 1
+    if ! printf '%s\n' "$display_message" > "$tmp_file" 2> /dev/null; then
+        rm -f "$tmp_file" 2> /dev/null || true
+        return 1
+    fi
     if ! mv -f "$tmp_file" "$INLINE_SPINNER_MSG_FILE" 2> /dev/null; then
         rm -f "$tmp_file" 2> /dev/null || true
         return 1

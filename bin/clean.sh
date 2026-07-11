@@ -141,11 +141,10 @@ prepare_clean_preview_file() {
     CLEAN_PREVIEW_STAGING_FILE=""
 
     if is_root_user && [[ -n "${SUDO_USER:-}" && "${SUDO_USER:-}" != "root" ]]; then
-        local root_temp_dir="/private/var/root"
-        [[ -d "$root_temp_dir" && ! -L "$root_temp_dir" && -O "$root_temp_dir" ]] || root_temp_dir="/var/root"
-        [[ -d "$root_temp_dir" && ! -L "$root_temp_dir" && -O "$root_temp_dir" ]] || return 1
+        ensure_mole_temp_root || return 1
+        local root_temp_dir="$MOLE_RESOLVED_TMPDIR"
 
-        CLEAN_PREVIEW_STAGING_FILE=$(umask 077 && mktemp "$root_temp_dir/.mole-clean-preview.XXXXXX") || return 1
+        CLEAN_PREVIEW_STAGING_FILE=$(umask 077 && mktemp "$root_temp_dir/mole.clean-preview.XXXXXX") || return 1
         [[ -f "$CLEAN_PREVIEW_STAGING_FILE" && ! -L "$CLEAN_PREVIEW_STAGING_FILE" && -O "$CLEAN_PREVIEW_STAGING_FILE" ]] || return 1
         MOLE_TEMP_FILES+=("$CLEAN_PREVIEW_STAGING_FILE")
         EXPORT_LIST_FILE="$CLEAN_PREVIEW_STAGING_FILE"

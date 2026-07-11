@@ -146,15 +146,20 @@ source "$PROJECT_ROOT/lib/core/base.sh"
 temp_root="$HOME/.cache/mole/tmp"
 old_temp="$temp_root/old-scan"
 fresh_temp="$temp_root/current-scan"
+old_spinner="$temp_root/.mole-spinner.old"
+fresh_spinner="$temp_root/.mole-spinner.fresh"
 persistent_cache="$HOME/.cache/mole/installed_apps_cache"
-mkdir -p "$temp_root"
+mkdir -p "$old_spinner" "$fresh_spinner"
 touch "$old_temp" "$fresh_temp" "$persistent_cache"
-touch -t 202001010101 "$old_temp" "$persistent_cache"
+touch "$old_spinner/message" "$fresh_spinner/message"
+touch -t 202001010101 "$old_temp" "$old_spinner" "$persistent_cache"
 
 prune_stale_mole_temp_files "$temp_root"
 
 [[ ! -e "$old_temp" ]]
+[[ ! -e "$old_spinner" ]]
 [[ -e "$fresh_temp" ]]
+[[ -e "$fresh_spinner/message" ]]
 [[ -e "$persistent_cache" ]]
 EOF
 

@@ -642,12 +642,32 @@ prune_stale_mole_temp_files() {
     [[ "$max_age_minutes" =~ ^[0-9]+$ ]] || max_age_minutes=1440
     [[ -n "$root" && -d "$root" && ! -L "$root" ]] || return 0
 
-    invoking_home=$(get_invoking_home)
-    [[ -n "$invoking_home" ]] || return 0
-    [[ "$root" == "${invoking_home%/}/.cache/mole/tmp" ]] || return 0
+    if is_root_user; then
+        [[ "$root" == "/private/var/root/.cache/mole/tmp" ]] || return 0
+    else
+        invoking_home=$(get_invoking_home)
+        [[ -n "$invoking_home" ]] || return 0
+        [[ "$root" == "${invoking_home%/}/.cache/mole/tmp" ]] || return 0
+    fi
 
     find "$root" -mindepth 1 -maxdepth 1 \( -type f -o -type l \) \
         -mmin "+$max_age_minutes" -exec rm -f -- {} + 2> /dev/null || true # SAFE: dedicated Mole temp root only
+
+    # Spinner control directories contain only flat control files. Remove
+    # their contents without recursive deletion, then rmdir the now-empty
+    # directory. Unexpected nested content makes rmdir fail closed.
+    local stale_dir
+    while IFS= read -r -d '' stale_dir; do
+        case "$stale_dir" in
+            "$root"/.mole-spinner.*) ;;
+            *) continue ;;
+        esac
+        [[ -d "$stale_dir" && ! -L "$stale_dir" && -O "$stale_dir" ]] || continue
+        find "$stale_dir" -mindepth 1 -maxdepth 1 \( -type f -o -type l \) \
+            -exec rm -f -- {} + 2> /dev/null || true # SAFE: validated spinner control dir only
+        rmdir "$stale_dir" 2> /dev/null || true
+    done < <(find "$root" -mindepth 1 -maxdepth 1 -type d -name '.mole-spinner.*' \
+        -mmin "+$max_age_minutes" -print0 2> /dev/null)
 }
 
 initialize_mole_temp_registry_path() {
@@ -693,6 +713,7 @@ ensure_mole_temp_root() {
 
         MOLE_RESOLVED_TMPDIR="$root_temp"
         export MOLE_RESOLVED_TMPDIR
+        prune_stale_mole_temp_files "$MOLE_RESOLVED_TMPDIR"
         case "${MOLE_TEMP_REGISTRY_FILE:-}" in
             "$root_temp"/mole.registry.*) ;;
             *) unset MOLE_TEMP_REGISTRY_FILE ;;
