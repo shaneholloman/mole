@@ -631,6 +631,27 @@ EOF
     [ "$output" = "UP" ]
 }
 
+@test "read_key maps gg to TOP and a lone g to OTHER" {
+    run bash -c "export MOLE_BASE_LOADED=1; source '$PROJECT_ROOT/lib/core/ui.sh'; printf 'gg' | read_key"
+    [ "$output" = "TOP" ]
+
+    run bash -c "export MOLE_BASE_LOADED=1; source '$PROJECT_ROOT/lib/core/ui.sh'; printf 'g' | read_key"
+    [ "$output" = "OTHER" ]
+}
+
+@test "read_key gg works on macOS default Bash 3.2 (fractional read -t rejected)" {
+    # macOS ships /bin/bash 3.2.57, which rejects fractional `read -t` timeouts.
+    # Exercise the shortcut under that exact interpreter when present so the
+    # portability regression is caught on macOS even if bats runs under bash 4+.
+    [[ -x /bin/bash ]] || skip "/bin/bash not available"
+    local major
+    major=$(/bin/bash -c 'echo "${BASH_VERSINFO[0]}"' 2> /dev/null || echo 99)
+    [[ "$major" -lt 4 ]] || skip "/bin/bash is not a 3.x build"
+
+    run /bin/bash -c "export MOLE_BASE_LOADED=1; source '$PROJECT_ROOT/lib/core/ui.sh'; printf 'gg' | read_key"
+    [ "$output" = "TOP" ]
+}
+
 @test "read_key respects MOLE_READ_KEY_FORCE_CHAR" {
     run bash -c "export MOLE_BASE_LOADED=1; export MOLE_READ_KEY_FORCE_CHAR=1; source '$PROJECT_ROOT/lib/core/ui.sh'; echo -n 'j' | read_key"
     [ "$output" = "CHAR:j" ]

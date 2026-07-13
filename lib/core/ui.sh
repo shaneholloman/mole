@@ -12,6 +12,17 @@ readonly MOLE_UI_LOADED=1
 _MOLE_CORE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 [[ -z "${MOLE_BASE_LOADED:-}" ]] && source "$_MOLE_CORE_DIR/base.sh"
 
+# Timeout for the second key of a multi-key sequence (e.g. gg -> jump to top).
+# Bash 4.0+ accepts fractional `read -t` values; macOS default Bash 3.2 rejects
+# them ("invalid timeout specification") and the read fails instantly, which
+# silently disabled the gg shortcut. Use a snappy sub-second wait where it is
+# supported and fall back to a 1s integer timeout on Bash 3.2.
+if [[ "${BASH_VERSINFO[0]:-0}" -ge 4 ]]; then
+    readonly MOLE_KEY_SEQ_TIMEOUT="0.3"
+else
+    readonly MOLE_KEY_SEQ_TIMEOUT="1"
+fi
+
 # Cursor control
 clear_screen() { printf '\033[2J\033[H'; }
 hide_cursor() { [[ -t 1 ]] && printf '\033[?25l' >&2 || true; }
@@ -233,7 +244,7 @@ read_key() {
         'l' | 'L') echo "RIGHT" ;;
         'G') echo "BOTTOM" ;;
         'g')
-            if IFS= read -r -s -n 1 -t 0.3 rest 2> /dev/null; then
+            if IFS= read -r -s -n 1 -t "$MOLE_KEY_SEQ_TIMEOUT" rest 2> /dev/null; then
                 if [[ "$rest" == "g" ]]; then
                     echo "TOP"
                 else
