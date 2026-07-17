@@ -100,13 +100,15 @@ safe_remove() { /bin/rm -rf "\$1"; return 0; }
 safe_clean "$base/a" "$base/b" "$base/keep" "Test cache"
 EOF
 
-    [ "$status" -eq 0 ]
+    [ "$status" -eq 0 ] || return 1
     # Two items were removed, so the detail column must say "2 items", not "3".
-    [[ "$output" == *"2 items"* ]]
-    [[ "$output" != *"3 items"* ]]
-    [[ ! -e "$base/a" ]]
-    [[ ! -e "$base/b" ]]
-    [[ -e "$base/keep" ]]
+    # Every assertion ends with || return 1: bare [[ ]] failures mid-test can be
+    # swallowed and let the test pass vacuously (same shape as #886).
+    [[ "$output" == *"2 items"* ]] || return 1
+    [[ "$output" != *"3 items"* ]] || return 1
+    [[ ! -e "$base/a" ]] || return 1
+    [[ ! -e "$base/b" ]] || return 1
+    [[ -e "$base/keep" ]] || return 1
 
     rm -rf "$base"
 }
