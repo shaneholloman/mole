@@ -11,39 +11,39 @@ readonly MOLE_PURGE_SHARED_LOADED=1
 # Canonical purge targets (heavy project build artifacts).
 readonly MOLE_PURGE_TARGETS=(
     "node_modules"
-    "target"        # Rust, Maven
-    "build"         # Gradle, various
-    "dist"          # JS builds
-    "venv"          # Python
-    ".venv"         # Python
-    ".pytest_cache" # Python (pytest)
-    ".mypy_cache"   # Python (mypy)
-    ".tox"          # Python (tox virtualenvs)
-    ".nox"          # Python (nox virtualenvs)
-    ".ruff_cache"   # Python (ruff)
-    ".gradle"       # Gradle local
+    "target"            # Rust, Maven
+    "build"             # Gradle, various
+    "dist"              # JS builds
+    "venv"              # Python
+    ".venv"             # Python
+    ".pytest_cache"     # Python (pytest)
+    ".mypy_cache"       # Python (mypy)
+    ".tox"              # Python (tox virtualenvs)
+    ".nox"              # Python (nox virtualenvs)
+    ".ruff_cache"       # Python (ruff)
+    ".gradle"           # Gradle local
     ".terragrunt-cache" # Terragrunt downloaded modules/providers
-    "__pycache__"   # Python
-    ".next"         # Next.js
-    ".nuxt"         # Nuxt.js
-    ".output"       # Nuxt.js
-    "vendor"        # PHP Composer
-    "bin"           # .NET build output (guarded; see is_protected_purge_artifact)
-    "obj"           # C# / Unity
-    ".turbo"        # Turborepo cache
-    ".parcel-cache" # Parcel bundler
-    ".dart_tool"    # Flutter/Dart build cache
-    ".zig-cache"    # Zig
-    "zig-out"       # Zig
-    ".angular"      # Angular
-    ".svelte-kit"   # SvelteKit
-    ".astro"        # Astro
-    "coverage"      # Code coverage reports
-    "DerivedData"   # Xcode
-    "Pods"          # CocoaPods
-    ".cxx"          # React Native Android NDK build cache
-    ".expo"         # Expo
-    ".build"        # Swift Package Manager
+    "__pycache__"       # Python
+    ".next"             # Next.js
+    ".nuxt"             # Nuxt.js
+    ".output"           # Nuxt.js
+    "vendor"            # PHP Composer
+    "bin"               # .NET build output (guarded; see is_protected_purge_artifact)
+    "obj"               # C# / Unity
+    ".turbo"            # Turborepo cache
+    ".parcel-cache"     # Parcel bundler
+    ".dart_tool"        # Flutter/Dart build cache
+    ".zig-cache"        # Zig
+    "zig-out"           # Zig
+    ".angular"          # Angular
+    ".svelte-kit"       # SvelteKit
+    ".astro"            # Astro
+    "coverage"          # Code coverage reports
+    "DerivedData"       # Xcode
+    "Pods"              # CocoaPods
+    ".cxx"              # React Native Android NDK build cache
+    ".expo"             # Expo
+    ".build"            # Swift Package Manager
 )
 
 readonly MOLE_PURGE_DEFAULT_SEARCH_PATHS=(
@@ -73,7 +73,6 @@ readonly MOLE_PURGE_PROJECT_INDICATORS=(
     "requirements.txt"
     "pom.xml"
     "build.gradle"
-    "*.tf"
     "terragrunt.hcl"
     "Gemfile"
     "composer.json"
