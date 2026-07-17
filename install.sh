@@ -184,6 +184,10 @@ resolve_source_dir() {
         branch="$(get_latest_release_tag_from_git || true)"
     fi
     if [[ -z "$branch" ]]; then
+        # Both release-tag lookups failed (typically GitHub API rate limits
+        # while codeload still works). Keep the install usable, but say
+        # loudly that this is now a nightly source install, not a release.
+        log_warning "Could not resolve the latest release tag; installing from main (nightly source)"
         branch="main"
     fi
     if [[ "$branch" != "main" && "$branch" != "dev" ]]; then
@@ -741,13 +745,14 @@ download_binary() {
             return 0
         fi
         rm -f "$staged_path"
-        log_warning "Checksum verification failed for ${binary_name}, trying local build"
-        if build_binary_from_source "$binary_name" "$staged_path" &&
-            install_staged_binary "$staged_path" "$target_path"; then
-            return 0
-        fi
-        rm -f "$staged_path"
-        log_error "Failed to install verified ${binary_name} binary"
+        # Integrity failure is fatal, never a downgrade. The asset arrived
+        # but its SHA256SUMS/attestation check did not pass; a blocked or
+        # tampered checksums file must not be able to reroute the install
+        # onto an unverified source build (classic verification-stripping
+        # downgrade). Explicit source builds remain available via
+        # MOLE_VERSION=main / MOLE_EDGE_INSTALL=true.
+        log_error "Verification failed for ${binary_name}; aborting instead of falling back to an unverified build"
+        log_error "Retry later, or opt into a source build explicitly: MOLE_VERSION=main ./install.sh (piping from curl: | bash -s latest)"
         return 1
     fi
     rm -f "$staged_path"
@@ -770,7 +775,14 @@ download_binary() {
                 return 0
             fi
             rm -f "$staged_path"
-            log_warning "Checksum verification failed for ${binary_name} from ${fallback_tag}"
+            if [[ -t 1 ]]; then stop_line_spinner; fi
+            # Same integrity contract as the primary tag above: the fallback
+            # asset arrived but did not verify, which is evidence of tampering
+            # or a corrupted checksums file, not of unavailability. Only a
+            # plain download failure may continue into the source build.
+            log_error "Verification failed for ${binary_name} from ${fallback_tag}; aborting instead of falling back to an unverified build"
+            log_error "Retry later, or opt into a source build explicitly: MOLE_VERSION=main ./install.sh (piping from curl: | bash -s latest)"
+            return 1
         fi
         rm -f "$staged_path"
         if [[ -t 1 ]]; then stop_line_spinner; fi

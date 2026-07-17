@@ -91,7 +91,7 @@ EOF
 	[[ "$output" == *"SUCCESS:Downloaded analyze binary"* ]]
 }
 
-@test "download_binary rejects checksum mismatch and falls back to local build" {
+@test "download_binary aborts on checksum mismatch without downgrading to a source build" {
 	run env HOME="$HOME" PROJECT_ROOT="$PROJECT_ROOT" bash --noprofile --norc <<'EOF'
 set -euo pipefail
 
@@ -110,11 +110,14 @@ stop_line_spinner() { :; }
 log_success() { echo "SUCCESS:$*"; }
 log_warning() { echo "WARNING:$*"; }
 log_error() { echo "ERROR:$*"; }
+# A tampered asset must NEVER reroute onto an unverified source build.
 build_binary_from_source() {
+	echo "SOURCE_BUILD_INVOKED"
 	printf 'built-from-source' > "$2"
 	chmod +x "$2"
 	return 0
 }
+get_latest_release_tag() { echo "V1.2.3"; }
 
 asset="status-darwin-$(uname -m | sed 's/x86_64/amd64/')"
 curl() {
@@ -133,13 +136,23 @@ curl() {
 	esac
 }
 
-download_binary "status"
-grep -q "built-from-source" "$CONFIG_DIR/bin/status-go"
-! grep -q "tampered-binary" "$CONFIG_DIR/bin/status-go"
+if download_binary "status"; then
+	echo "UNEXPECTED_SUCCESS"
+	exit 1
+fi
+# No unverified artifact left behind under the installed name.
+if [[ -e "$CONFIG_DIR/bin/status-go" ]]; then
+	grep -q "tampered-binary" "$CONFIG_DIR/bin/status-go" && echo "TAMPERED_INSTALLED"
+	grep -q "built-from-source" "$CONFIG_DIR/bin/status-go" && echo "SOURCE_INSTALLED"
+fi
 EOF
 
 	[ "$status" -eq 0 ]
-	[[ "$output" == *"WARNING:Checksum verification failed for status, trying local build"* ]]
+	[[ "$output" != *"SOURCE_BUILD_INVOKED"* ]]
+	[[ "$output" != *"UNEXPECTED_SUCCESS"* ]]
+	[[ "$output" != *"TAMPERED_INSTALLED"* ]]
+	[[ "$output" != *"SOURCE_INSTALLED"* ]]
+	[[ "$output" == *"aborting instead of falling back"* ]]
 }
 
 @test "download_binary preserves the installed helper when verification and rebuild fail (#1193)" {
@@ -197,7 +210,7 @@ EOF
 	[[ "$output" != *"STAGING_FILE_LEAKED"* ]]
 }
 
-@test "download_binary rejects SHA256SUMS without matching asset entry" {
+@test "download_binary aborts when SHA256SUMS has no matching asset entry" {
 	run env HOME="$HOME" PROJECT_ROOT="$PROJECT_ROOT" bash --noprofile --norc <<'EOF'
 set -euo pipefail
 
@@ -217,10 +230,12 @@ log_success() { echo "SUCCESS:$*"; }
 log_warning() { echo "WARNING:$*"; }
 log_error() { echo "ERROR:$*"; }
 build_binary_from_source() {
+	echo "SOURCE_BUILD_INVOKED"
 	printf 'rebuilt-after-missing-checksum' > "$2"
 	chmod +x "$2"
 	return 0
 }
+get_latest_release_tag() { echo "V1.2.3"; }
 
 asset="analyze-darwin-$(uname -m | sed 's/x86_64/amd64/')"
 hash=$(printf 'release-binary' | shasum -a 256 | awk '{print $1}')
@@ -240,15 +255,19 @@ curl() {
 	esac
 }
 
-download_binary "analyze"
-grep -q "rebuilt-after-missing-checksum" "$CONFIG_DIR/bin/analyze-go"
+if download_binary "analyze"; then
+	echo "UNEXPECTED_SUCCESS"
+	exit 1
+fi
 EOF
 
 	[ "$status" -eq 0 ]
-	[[ "$output" == *"WARNING:Checksum verification failed for analyze, trying local build"* ]]
+	[[ "$output" != *"SOURCE_BUILD_INVOKED"* ]]
+	[[ "$output" != *"UNEXPECTED_SUCCESS"* ]]
+	[[ "$output" == *"aborting instead of falling back"* ]]
 }
 
-@test "download_binary rejects release asset when SHA256SUMS cannot be downloaded" {
+@test "download_binary aborts when SHA256SUMS cannot be downloaded" {
 	run env HOME="$HOME" PROJECT_ROOT="$PROJECT_ROOT" bash --noprofile --norc <<'EOF'
 set -euo pipefail
 
@@ -268,10 +287,12 @@ log_success() { echo "SUCCESS:$*"; }
 log_warning() { echo "WARNING:$*"; }
 log_error() { echo "ERROR:$*"; }
 build_binary_from_source() {
+	echo "SOURCE_BUILD_INVOKED"
 	printf 'rebuilt-after-checksum-404' > "$2"
 	chmod +x "$2"
 	return 0
 }
+get_latest_release_tag() { echo "V1.2.3"; }
 
 asset="status-darwin-$(uname -m | sed 's/x86_64/amd64/')"
 curl() {
@@ -290,12 +311,18 @@ curl() {
 	esac
 }
 
-download_binary "status"
-grep -q "rebuilt-after-checksum-404" "$CONFIG_DIR/bin/status-go"
+# An unreachable/blocked SHA256SUMS is indistinguishable from a suppressed
+# one, so it must fail closed too, not silently build from unverified source.
+if download_binary "status"; then
+	echo "UNEXPECTED_SUCCESS"
+	exit 1
+fi
 EOF
 
 	[ "$status" -eq 0 ]
-	[[ "$output" == *"WARNING:Checksum verification failed for status, trying local build"* ]]
+	[[ "$output" != *"SOURCE_BUILD_INVOKED"* ]]
+	[[ "$output" != *"UNEXPECTED_SUCCESS"* ]]
+	[[ "$output" == *"aborting instead of falling back"* ]]
 }
 
 @test "download_binary verifies fallback release asset against fallback checksums" {
@@ -347,6 +374,71 @@ EOF
 
 	[ "$status" -eq 0 ]
 	[[ "$output" == *"SUCCESS:Downloaded status from V1.2.2"* ]]
+}
+
+@test "download_binary aborts on fallback-tag checksum mismatch without a source build" {
+	run env HOME="$HOME" PROJECT_ROOT="$PROJECT_ROOT" bash --noprofile --norc <<'EOF'
+set -euo pipefail
+
+INSTALL_DIR="$HOME/install"
+CONFIG_DIR="$HOME/config"
+SOURCE_DIR="$HOME/source"
+VERBOSE=1
+GREEN='' BLUE='' YELLOW='' RED='' NC=''
+ICON_SUCCESS='ok'
+ICON_ERROR='err'
+
+load_installer_binary_helpers
+
+start_line_spinner() { :; }
+stop_line_spinner() { :; }
+log_success() { echo "SUCCESS:$*"; }
+log_warning() { echo "WARNING:$*"; }
+log_error() { echo "ERROR:$*"; }
+get_latest_release_tag() { echo "V1.2.2"; }
+verify_release_attestation() { return 2; }
+# The fallback tag is the last verification gate before the source-build
+# branch; a mismatch there is tampering evidence and must abort too.
+build_binary_from_source() {
+	echo "SOURCE_BUILD_INVOKED"
+	printf 'built-from-source' > "$2"
+	chmod +x "$2"
+	return 0
+}
+
+asset="status-darwin-$(uname -m | sed 's/x86_64/amd64/')"
+good_hash=$(printf 'expected-binary' | shasum -a 256 | awk '{print $1}')
+curl() {
+	local out="" url=""
+	while [[ $# -gt 0 ]]; do
+		case "$1" in
+			-o) out="$2"; shift 2 ;;
+			http*) url="$1"; shift ;;
+			*) shift ;;
+		esac
+	done
+	case "$url" in
+		*"V1.2.3/${asset}") return 22 ;;
+		*"V1.2.2/${asset}") printf 'tampered-binary' > "$out" ;;
+		*"V1.2.2/SHA256SUMS") printf '%s  %s\n' "$good_hash" "$asset" > "$out" ;;
+		*) return 1 ;;
+	esac
+}
+
+if download_binary "status"; then
+	echo "UNEXPECTED_SUCCESS"
+	exit 1
+fi
+if [[ -e "$CONFIG_DIR/bin/status-go" ]]; then
+	echo "BINARY_INSTALLED_ANYWAY"
+fi
+EOF
+
+	[ "$status" -eq 0 ] || return 1
+	[[ "$output" != *"SOURCE_BUILD_INVOKED"* ]] || return 1
+	[[ "$output" != *"UNEXPECTED_SUCCESS"* ]] || return 1
+	[[ "$output" != *"BINARY_INSTALLED_ANYWAY"* ]] || return 1
+	[[ "$output" == *"aborting instead of falling back"* ]] || return 1
 }
 
 
