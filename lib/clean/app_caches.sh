@@ -171,6 +171,8 @@ clean_code_editors() {
     safe_clean ~/Library/Application\ Support/Code/WebStorage/*/CacheStorage/* "VS Code webview cache"
     safe_clean ~/Library/Caches/com.sublimetext.*/* "Sublime Text cache"
     safe_clean ~/Library/Caches/Zed/* "Zed cache"
+    # Zed stores its bundled npm cache here; keep editor state under db/ untouched.
+    safe_clean ~/Library/Application\ Support/Zed/node/cache/* "Zed npm cache"
     safe_clean ~/Library/Logs/Zed/* "Zed logs"
     clean_editor_obsolete_extensions
     # CodeBuddy Extension (VS Code fork, Electron)

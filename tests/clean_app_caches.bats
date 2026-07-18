@@ -364,17 +364,22 @@ EOF
 }
 
 @test "clean_code_editors includes Zed caches" {
+    mkdir -p "$HOME/Library/Application Support/Zed/node/cache/_cacache"
+    mkdir -p "$HOME/Library/Application Support/Zed/db"
+
     run env HOME="$HOME" PROJECT_ROOT="$PROJECT_ROOT" /bin/bash --noprofile --norc << 'EOF'
 set -euo pipefail
 source "$PROJECT_ROOT/lib/core/common.sh"
 source "$PROJECT_ROOT/lib/clean/app_caches.sh"
-safe_clean() { echo "$2"; }
+safe_clean() { echo "CLEAN:$1|$2"; }
 clean_code_editors
 EOF
 
     [ "$status" -eq 0 ]
-    [[ "$output" == *"Zed cache"* ]]
-    [[ "$output" == *"Zed logs"* ]]
+    [[ "$output" == *"Zed cache"* ]] || return 1
+    [[ "$output" == *"CLEAN:$HOME/Library/Application Support/Zed/node/cache/_cacache|Zed npm cache"* ]] || return 1
+    [[ "$output" != *"$HOME/Library/Application Support/Zed/db"* ]] || return 1
+    [[ "$output" == *"Zed logs"* ]] || return 1
 }
 
 @test "clean_code_editors includes VS Code WebStorage CacheStorage only" {
