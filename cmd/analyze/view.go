@@ -203,7 +203,10 @@ func (m model) View() string {
 					}
 					percentStr := formatPercent(percent, totalSize > 0 && sizeVal >= 0)
 					bar := coloredProgressBar(barValue, maxSize, percent)
-					sizeText := "pending.."
+					// Match the percent column's "--" placeholder: a lowercase
+					// word breaks the numeric column rhythm, and the header
+					// spinner already signals that scanning is in progress.
+					sizeText := "--"
 					if sizeVal >= 0 {
 						sizeText = humanizeBytes(sizeVal)
 					}

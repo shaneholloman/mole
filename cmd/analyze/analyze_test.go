@@ -392,6 +392,30 @@ func TestViewShowsEscBackAndCtrlCQuitHints(t *testing.T) {
 	}
 }
 
+func TestOverviewPendingSizeAlignsWithSizeColumn(t *testing.T) {
+	// A pending overview row must use the same right-aligned "--" placeholder
+	// as the percent column, not a lowercase word that breaks the numeric
+	// column rhythm ("pending.." regressed the alignment before).
+	m := model{
+		isOverview: true,
+		path:       "/",
+		entries: []dirEntry{
+			{Name: "Applications", Path: "/Applications", Size: 16 << 30, IsDir: true},
+			{Name: "iOS Backups", Path: "/tmp/backups", Size: -1, IsDir: true},
+		},
+		totalSize: 16 << 30,
+	}
+
+	view := m.View()
+	if strings.Contains(view, "pending") {
+		t.Fatalf("pending rows must not render a text placeholder, got:\n%s", view)
+	}
+	// %10s right-alignment: the placeholder ends at the same column as sizes.
+	if !strings.Contains(view, fmt.Sprintf("%10s", "--")) {
+		t.Fatalf("expected right-aligned -- size placeholder, got:\n%s", view)
+	}
+}
+
 func TestViewKeepsCachedEntriesWhileRefreshing(t *testing.T) {
 	m := model{
 		path:             "/tmp/project/child",
